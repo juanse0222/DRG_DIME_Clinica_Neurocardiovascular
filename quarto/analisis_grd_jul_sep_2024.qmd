@@ -1,0 +1,597 @@
+---
+title: "ANÁLISIS DE GRUPOS RELACIONADOS DE DIAGNÓSTICO DIME,"
+author: "Juan Sebastian Hurtado Zapata"
+format: 
+  html:
+    smooth-scroll: true
+    code-fold: false
+    toc: true
+    toc-location: right
+    theme: Lumen
+    image: DIME_logo.png
+    embed-resources: true
+execute: 
+  echo: false
+  warning: false
+css: styles.css
+editor: visual
+---
+
+```{r}
+### cargar los paquetes: 
+pacman::p_load(tidyverse, janitor, lubridate, flextable, gtsummary, rio, hms, 
+               epikit, scales, gt, zoo, readxl, reactable, gt, ggstatsplot, plotly)
+
+data_costo_total_3 <- import("data_costo_total_3_2025_II.rds")
+data_grd_2 <- import("data_grd_2_2025_II.rda")
+Sys.setlocale("LC_TIME", "es_ES")
+```
+
+```{r}
+### Ajustar la base de datos. 
+data_costo_total_3 <- data_costo_total_3 %>% 
+  mutate(UNE = case_when(departamento_cargue == "HOSPITALIZACION 3 PISO" ~
+                           "Estancia",
+                  departamento_cargue == "HOSPITALIZACION 5 PISO" ~
+                    "Estancia",
+                  str_detect(departamento_cargue, 
+                             "UCI-UCI ANGIO|UCI|UCIN") ~
+                    "Estancia",
+                  departamento_cargue == "UCIN 5 PISO" ~ "Estancia",
+                  departamento_cargue == "ANGIOGRAFIA" ~ "Hemodinamia",
+                  departamento_cargue == "CIRUGIA" ~ "Cirugía",
+                  departamento_cargue == "URGENCIAS" ~ "Estancia",
+                  str_detect(departamento_cargue, "CONSULTA EXTERNA|
+                             CIRUGIA CONSULTAS") ~ "Consulta",
+                  departamento_cargue == "ANGIOGRAFÍA" ~ "Hemodinamia",
+                  departamento_cargue == "URGENCIAS" ~ "Estancia",
+                  str_detect(departamento_cargue, 
+                  "RESONANCIA|ECOGRAFIA|ESCANOGRAFIA|FLUOROSCOPIA|
+                  RAYOSX|DENSITOMETRIA|ENDOSCOPIA|
+                  MAMOGRAFIA|UNIDAD DE ATENCION DIGESTIVA") ~ "Imágenes",
+                  str_detect(departamento_cargue, "LABORATORIO CLINICO") ~
+                    "Laboratorio",
+                  str_detect(departamento_cargue, "INSUFICIENCIA CARDIACA|
+                             REHABILITACION CARDIACA|
+                             CARDIOLOGIA NOINVASIVO") ~
+                    "Cardiología",
+                  departamento_cargue == "LABORATORIO VASCULAR" ~
+                    "Imágenes",
+                  departamento_cargue == "FARMACIA" ~ "Medicamentos",
+                  departamento_cargue == "0089 CONSULTA HEMODINAMIA" ~
+                    "Cardiología",
+                  departamento_cargue == "LABORATORIO GENETICA" ~
+                    "Laboratorio",
+                  departamento_cargue == "RAYOS X" ~ "Rayos X",
+                  TRUE ~ departamento_cargue),
+         costo = replace_na(costo, 0))
+ # mutate(across(starts_with("mes"), ~ factor(., levels = c("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"))))
+
+data_costo_total_3 %>% 
+  tabyl(mes_cargue)
+```
+
+```{r}
+## Ajustar la base de datos 
+tabla_ordenes_costo_total <- data_costo_total_3 %>% 
+ # filter(str_detect(mes_egreso, "jul|ago|sep")) %>% 
+  mutate(departamento = case_when(departamento_cargue == "UCIN" ~ "UCIN",
+                                    departamento_cargue == "UCIN 5 PISO" ~
+                                    "UCIN", 
+                                    departamento_cargue == "HOSPITALIZACION 3 PISO" ~
+                                    "HOSPITALIZACION",
+                                    departamento_cargue == "UCI-UCIN ANGIO" ~ "UCIN",
+                                    TRUE ~ departamento_cargue)) %>% 
+  group_by(caci,mes_cargue) %>% 
+  summarise(costo_orden = sum(costo),
+            pacientes = n_distinct(identificacion),
+            promedio = costo_orden/pacientes,
+            mediana = median(costo), group = "drop")
+
+tabla_ordenes_agrupada_pacientes <- data_costo_total_3 %>%
+  group_by(identificacion, mes_cargue, caci) %>% 
+  summarise(costo = sum(costo)) %>% 
+  mutate(costo = as.numeric(costo), .groups = "drop") 
+```
+
+# ANÁLISIS GENERAL DEL COMPORTAMIENTO DE LOS GRD EN DIME, 2024
+
+## Tabla del comportamiento de costos por mes para todos los GRD en DIME, 2024
+
+```{r}
+#Sys.setlocale("LC_TIME", "es_ES")
+tabla_1_general_grd <- tabla_ordenes_agrupada_pacientes %>% 
+#  mutate(mes_cargue = factor(mes_cargue, levels = c("jul", "ago", "sep"))) %>% 
+  group_by(mes_cargue) %>% 
+  summarise(Total = sum(costo),
+            paciente = n_distinct(identificacion),
+            #Costo_medio = Total/Pacientes,
+            Mediana = median(costo), 
+            'RIQ-I (0.25)' = quantile(costo, 0.25),
+            'RIQ-S (0.75)' = quantile(costo, 0.75), 
+            'RIQ-S (0.975)' = quantile(costo, 0.975), .groups = "drop") %>% 
+  rename(Mes = mes_cargue) %>% 
+  mutate_at(vars(Total, Mediana,  'RIQ-I (0.25)', 'RIQ-S (0.75)', 'RIQ-S (0.975)'), ~ 
+              scales::dollar(.x, big.mark = "."))
+    
+tabla_1_general_grd %>% 
+  flextable()
+
+
+reactable(tabla_1_general_grd, 
+  defaultColDef = colDef(
+    header = function(value) gsub(".", " ", value, fixed = TRUE),
+    cell = function(value) format(value, nsmall = 1),
+    align = "center",
+    minWidth = 200,  # Establece un ancho mínimo para las columnas
+    headerStyle = list(background = "#f7f7f8", whiteSpace = "nowrap"),
+    ),
+  bordered = TRUE, 
+  highlight = TRUE, compact = F, )
+
+  
+```
+
+```{r}
+tabla_2_general_grd <- tabla_ordenes_agrupada_pacientes %>% 
+#  mutate(mes_cargue = factor(mes_cargue, levels = c("jul", "ago", "sep"))) %>% 
+  group_by(mes_cargue, caci) %>% 
+  summarise(Total = sum(costo),
+            paciente = n_distinct(identificacion),
+            #Costo_medio = Total/Pacientes,
+            Mediana = median(costo), 
+            'RIQ-I (0.25)' = quantile(costo, 0.25),
+            'RIQ-S (0.75)' = quantile(costo, 0.75), 
+            'RIQ-S (0.975)' = quantile(costo, 0.975), .groups = "drop") %>% 
+  rename(Mes = mes_cargue) %>% 
+  mutate_at(vars(Total, Mediana,  'RIQ-I (0.25)', 'RIQ-S (0.75)', 'RIQ-S (0.975)'), ~ 
+              scales::dollar(.x, big.mark = ".")) 
+
+tabla_3_general_grd <- tabla_ordenes_agrupada_pacientes %>% 
+#  mutate(mes_cargue = factor(mes_cargue, levels = c("jul", "ago", "sep"))) %>% 
+  group_by(mes_cargue, caci) %>% 
+  summarise(Total = sum(costo),
+            paciente = n_distinct(identificacion),
+            #Costo_medio = Total/Pacientes,
+            Mediana = median(costo), 
+            'RIQ-I (0.25)' = quantile(costo, 0.25),
+            'RIQ-S (0.75)' = quantile(costo, 0.75), 
+            'RIQ-S (0.975)' = quantile(costo, 0.975), .groups = "drop") 
+
+tabla_3_general_grd %>% 
+  summarise(median(`RIQ-S (0.975)`)) 
+
+#### 31476142	
+```
+
+## Gráfico del costo medio mes de los GRD, distribución por mes, DIME 2025
+
+```{r}
+pacman::p_load(plotly, viridis, hrbrthemes)
+
+tabla_ordenes_agrupada_pacientes <- data_costo_total_3 %>% 
+ # filter(!mes_cargue == "may") %>% 
+#  mutate(mes_cargue = factor(mes_cargue, levels = c("jul", "ago", "sep"))) %>% 
+  group_by(identificacion, mes_cargue, caci) %>% 
+  summarise(costo = sum(costo)) %>% 
+  ungroup()
+  
+
+color_caci = c(acv = "skyblue", icc = "orange", sca = "pink", txc = "burlywood") 
+
+caci_boxplot <- ggplot(tabla_ordenes_agrupada_pacientes, 
+                       mapping = aes(x = mes_cargue, y = costo, fill = mes_cargue)) +
+  geom_boxplot() +
+  geom_jitter(color="black", size=0.4, alpha=0.9) +
+  #annotate(geom = "text", y = 50000000, x = "Mar",
+  #label = "<i>Kruskal-Wallis =0.96038,
+   #        p-value = 0.9657</i>", size = 4,  fontface = 'italic') +
+  scale_y_continuous(labels = scales::dollar_format(scale = 1e-3), n.breaks = 20,
+                     limits = c(0, 60000000)) +
+  xlab("GRD") +
+  ylab("COSTOS EN MILLONES") +
+  labs(title = "COSTO MEDIO (MEDIANA) PACIENTE PARA TODOS LOS GRD") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.title = element_text(face = "bold"),
+    axis.title.x = element_text(hjust = 3),
+    legend.position = "none"
+  ) +
+  facet_wrap(~caci)
+
+ggplotly(caci_boxplot)
+```
+
+## Costo medio pacientes por mes de los CACI, distribución por mes,  DIME 2025
+
+```{r}
+### Costo CACI por mes y número de pacientes. 
+caci_costo <- data_costo_total_3 %>% 
+  group_by(mes_cargue, caci) %>% 
+  summarise(Pacientes = n_distinct(identificacion),
+            costo = sum(costo), .groups = "drop") %>% 
+  pivot_wider(id_cols = mes_cargue, names_from = caci,
+              values_from = c(costo, Pacientes)) %>% 
+  mutate(across(,replace_na, 0)) %>% 
+  mutate(across(starts_with("costo"), ~ scales::dollar(., prefix = "$", big.mark = ".", decimal.mark = ","))) %>% 
+  select(mes_cargue, costo_ACV, Pacientes_ACV, costo_ICC, Pacientes_ICC, costo_SCA, Pacientes_SCA, costo_TxC, Pacientes_TxC) %>% 
+  flextable() %>% 
+  autofit() 
+
+caci_costo %>% 
+  add_header_row(
+    top = TRUE,                
+    values = c("Mes",     
+               "ACV", "",
+               "ICC", "",    
+               "SCA", "",
+               "TxC", ""
+               )) %>% 
+  set_header_labels(       
+    mes_cargue = "",
+    costo_acv = "Costo", 
+    Pacientes_acv = "Pacientes",
+    costo_icc = "Costo", 
+    Pacientes_icc = "Pacientes",
+    costo_sca = "Costo", 
+    Pacientes_sca = "Pacientes",
+    costo_txc = "Costo", 
+    Pacientes_txc = "Pacientes"
+    ) %>% 
+  merge_at(i = 1, j = 2:3, part = "header") %>% 
+  merge_at(i = 1, j = 4:5, part = "header") %>% 
+  merge_at(i = 1, j = 6:7, part = "header") %>% 
+  merge_at(i = 1, j = 8:9, part = "header") %>% 
+  border_remove() %>% 
+  theme_booktabs() %>% 
+  align(i = 1, align = "center", part = "header") %>% 
+  bold( i = 1, part = "header") %>% 
+  autofit()
+```
+
+```{r}
+pacman::p_load(ggstatsplot)
+
+tabla_ordenes_agrupada_pacientes <- tabla_ordenes_agrupada_pacientes %>% 
+  mutate(caci = str_to_upper(caci))
+
+
+plt <- ggbetweenstats (
+  data = tabla_ordenes_agrupada_pacientes,
+  x = caci,
+  y = costo, pairwise.display = "s", 
+  type = "noparametric", centrality.type = "nonparametric", digits = 2) +
+  labs(x = "GRD", y = "Costo en millones",
+       title = "Costo medio CACI en DIME, enero a junio 2025") +
+  theme_classic() +
+  theme(text = element_text(size = 12, color = "black"),
+    plot.subtitle = element_text(
+      size = 8, 
+      face = "bold",
+      color="#1b2838"),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.title = element_text(face = "bold"),
+    axis.title.x = element_text(hjust = 0.5),
+    legend.position = "none") +
+  scale_y_continuous(labels = scales::dollar_format(scale = 1e-3), n.breaks = 20)
+
+plt
+
+```
+
+## Gráfico 2. Comportamiento de los costos por fecha y CACI, DIME 2024
+
+```{r}
+tabla_grafico_2_puntos <- data_costo_total_3 %>% 
+  group_by(fecha_cargue, caci) %>% 
+  summarise(costo = sum(costo),
+            pacientes = n_distinct(identificacion)) %>% 
+  ungroup()
+
+
+ # median(tabla_ordenes_agrupada_pacientes$costo)
+
+
+ grafico_2_puntos <-  ggplot(tabla_grafico_2_puntos, aes(x = fecha_cargue, 
+                                                         y = costo, size= pacientes, 
+                                     color = caci, na.rm = F)) +
+    geom_point(alpha = 0.5) +
+    geom_hline(yintercept = 4616709, linetype = "dashed") +
+   geom_hline(yintercept = 31476142, linetype = "dashed", color = "brown") +
+    annotate("text", x = as.Date("2025-01-10"), 
+             y = 10000000, label = "$ 5.035.000", size = 3, hjust = 0.5) +
+   annotate("text", x = as.Date("2025-01-10"), 
+             y = 40000000, label = "$ 31.476.142", size = 3, hjust = 0.5) +
+    labs(title = "Distribución pacientes y costos por CACI, DIME 2024", 
+          size = "Pacientes", x = "Fecha", y = "Costo", color = "CACI") +
+    scale_x_date(breaks = "5 days", date_labels = "%d %b") +
+    scale_y_continuous(n.breaks = 20, 
+                       labels = dollar_format(scale = 1e-3), limits = c(0, 140000000)) +
+   theme_classic() +
+     theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 90),
+    axis.title.x = element_text(hjust = 3, angle = 90),
+    legend.title = element_text(face = "bold"),
+  ) 
+ 
+     ggplotly(grafico_2_puntos)
+    
+```
+
+## Costo mediana paciente CACI por mes y número de pacientes, DIME 2024
+
+```{r}
+caci_costo_2 <- data_costo_total_3 %>% 
+  group_by(identificacion, caci, mes_cargue) %>% 
+  summarise(costo = sum(costo), .groups = "drop") 
+
+caci_costo_3 <- caci_costo_2 %>% 
+  group_by(caci, mes_cargue) %>% 
+  summarise(costo = median(costo), .groups = "drop",
+            Pacientes = n_distinct(identificacion)) %>% 
+  pivot_wider(id_cols = mes_cargue, 
+              names_from = caci, values_from = c(costo, Pacientes))%>% 
+  mutate(across(,replace_na, 0)) %>% 
+  mutate(across(starts_with("costo"), ~ scales::dollar(., prefix = "$", big.mark = ".", decimal.mark = ","))) %>% 
+  select(mes_cargue, costo_ACV, Pacientes_ACV, costo_ICC, Pacientes_ICC, costo_SCA, Pacientes_SCA, costo_TxC, Pacientes_TxC) %>% 
+  flextable() 
+
+caci_costo_3 %>% 
+  add_header_row(
+    top = TRUE,                
+    values = c("Mes",     
+               "ACV", "",
+               "ICC", "",    
+               "SCA", "",
+               "TxC", "")) %>% 
+  set_header_labels(       
+    mes_cargue = "",
+    costo_acv = "Costo", 
+    Pacientes_acv = "Pacientes",
+    costo_icc = "Costo", 
+    Pacientes_icc = "Pacientes",
+    costo_sca = "Costo", 
+    Pacientes_sca = "Pacientes",
+    costo_txc = "Costo", 
+    Pacientes_txc = "Pacientes") %>% 
+  merge_at(i = 1, j = 2:3, part = "header") %>% 
+  merge_at(i = 1, j = 4:5, part = "header") %>% 
+  merge_at(i = 1, j = 6:7, part = "header") %>% 
+  merge_at(i = 1, j = 8:9, part = "header") %>% 
+  border_remove() %>% 
+  theme_booktabs() %>% 
+  align(i = 1, align = "center", part = "header") %>% 
+  bold( i = 1, part = "header") %>% 
+  autofit()
+```
+
+## Gráfico 3. Comportamiento de los costos por tipo de UNE y CACI, 2024
+
+```{r}
+tabla_costo_UNE <- data_costo_total_3 %>% 
+  filter(!UNE == "LABORATORIO GENETICA") %>% 
+  mutate(UNE = case_when(UNE == "FARMACIA" ~ "Medicamentos y dispositivos",
+                         UNE == "0089 CONSULTA HEMODINAMIA" ~ "Cardiología",
+                         UNE == "CARDIOLOGIA NO INVASIVO" ~ "Cardiología",
+                         UNE == "ANGIOGRAFIA CONSULTAS" ~ "Hemodinamia",
+                         UNE == "Rayos X" ~ "Imágenes",
+                         UNE == "REHABILITACION CARDIACA" ~ "Cardiología",
+                         TRUE ~ UNE)) %>% 
+  group_by(mes_cargue, UNE, caci) %>% 
+  summarise(costo = sum(costo), .groups = "drop") %>% 
+  #filter(!caci == "txc") %>% 
+  mutate(caci = str_to_upper(caci))
+
+grafico_3_costo_une <- ggplot(tabla_costo_UNE, aes(x = mes_cargue, y = costo, fill = UNE),
+                                                   color = "black") +
+  geom_bar(position = "dodge", stat = "identity", color = "black") +
+  xlab("Mes") +
+  ylab("Costo en millones") +
+  labs(title = "Comportamiento de los UNE por GRD en 2024") +
+  theme_classic() +
+  facet_wrap("caci") +
+  scale_y_continuous(n.breaks = 15, labels = dollar_format(scale = 1e-3), limits = c(0, 180000000)) +
+     theme(
+    plot.title = element_text(face = "bold"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 90),
+    legend.title = element_text(face = "bold"),
+  ) 
+
+ggplotly(grafico_3_costo_une)
+
+```
+
+## Tabla de ventas por mes de egreso, pacientes CACI, DIME 2024
+
+```{r}
+Sys.setlocale("LC_TIME", "es_ES")
+
+data_venta_total_3.2 <- data_grd_2 %>% 
+  mutate(mes_egreso = month(fecha_de_egreso, label = T)) 
+
+data_venta_total_3.2 <- data_venta_total_3.2 %>% 
+  group_by(caci, mes_egreso) %>% 
+  summarise(venta = sum(total_cuenta)) %>% 
+  ungroup()
+
+
+tabla_venta <- data_venta_total_3.2 %>% 
+  pivot_wider(id_cols = caci, names_from = mes_egreso, values_from = venta) 
+
+tabla_venta <- tabla_venta %>% 
+  mutate(across(1, str_to_upper)) %>% 
+  rename("CACI (GRD)" = caci) %>% 
+  adorn_totals("both") %>% 
+  mutate(across(, replace_na, 0)) %>% 
+  mutate(across(2:10, scales::dollar)) 
+
+reactable(tabla_venta, 
+  defaultColDef = colDef(
+    header = function(value) gsub(".", " ", value, fixed = TRUE),
+    cell = function(value) format(value, nsmall = 1),
+    align = "center",
+    minWidth = 200,  # Establece un ancho mínimo para las columnas
+    headerStyle = list(background = "#f7f7f8", whiteSpace = "nowrap"),
+    ),
+  bordered = TRUE, 
+  highlight = TRUE, compact = F, )
+```
+
+```{r}
+data_venta_total_3.3 <- data_grd_2 %>% 
+  mutate(mes_egreso = month(fecha_de_egreso, label = T)) %>% 
+  mutate(mes_cruce = mes_egreso) %>% 
+  group_by(caci, mes_egreso) %>% 
+  summarise(venta = sum(total_cuenta),
+            mediana = median(total_cuenta), .groups = "drop") 
+
+tabla_venta <- data_venta_total_3.3 %>% 
+  pivot_wider(id_cols = caci, names_from = mes_egreso, values_from = venta) %>% 
+  #select(caci, jul, ago, sep) %>% 
+  mutate(across(1, str_to_upper)) %>% 
+  rename("CACI (GRD)" = caci) %>% 
+  adorn_totals("both") %>% 
+  mutate(across(, replace_na, 0)) %>% 
+  mutate(across(2:9, scales::dollar)) 
+
+tabla_venta %>% 
+  flextable() %>% 
+  autofit()
+```
+
+## Tabla 2. Comportamiento de la rentabilidad por mes DIME 2024
+
+```{r}
+data_costo_total_3.1 <- data_costo_total_3 %>% 
+  group_by(caci, mes_cargue) %>% 
+  summarise(costo = sum(costo), 
+            venta = sum(venta), .groups = "drop") 
+
+data_rentabilidad <- data_costo_total_3.1 %>% 
+  mutate(rentabilidad = venta - costo) 
+ # mutate(mes_cruce = factor(mes_cruce, levels = c("ene", "feb", "mar", "abr",
+     #                                             "may", "jun", "jul", "ago", "sep")))
+
+tabla_rentabilidad <- data_rentabilidad %>% 
+  pivot_wider(id_cols = caci, names_from = mes_cargue, values_from = rentabilidad) %>% 
+  #select(caci, ene, feb, mar, abr, may, jun, jul, ago, sep) %>% 
+  mutate(across(1, str_to_upper)) %>% 
+  rename("CACI (GRD)" = caci) %>% 
+  adorn_totals("both") %>% 
+  mutate(across(, replace_na, 0)) %>% 
+  mutate(across(2:14, scales::dollar)) 
+  
+reactable(tabla_rentabilidad, 
+  defaultColDef = colDef(
+    header = function(value) gsub(".", " ", value, fixed = TRUE),
+    cell = function(value) format(value, nsmall = 1),
+    align = "center",
+    minWidth = 200,  # Establece un ancho mínimo para las columnas
+    headerStyle = list(background = "#f7f7f8", whiteSpace = "nowrap"),
+    ),
+  bordered = TRUE, 
+  highlight = TRUE, compact = F, )
+
+
+```
+
+## Grafico 4. Rentabilidad de los CACI por mes, DIME 2024
+
+```{r}
+pacman::p_load(plotly)
+
+#data_rentabilidad <- data_rentabilidad %>% 
+ #  mutate(mes_cruce = factor(factor(mes_cruce, levels = c("ene", "feb", "mar", "abr",
+  #                                                "may", "jun", "jul", "ago", "sep"))),
+   #       caci = str_to_upper(caci))
+
+
+p1 <- ggplot(data = data_rentabilidad, aes(x = mes_cargue, 
+                                           y = rentabilidad, fill = caci)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  geom_text(aes(label = scales::dollar(rentabilidad, scale = 1e-6)), 
+            position = position_dodge(width = 0.5), 
+            vjust = -4,# Centrar las etiquetas
+            size = 2,  # Ajusta el tamaño de la etiqueta para mejor visibilidad
+            color = "black") +
+  scale_y_continuous(n.breaks = 15, labels = dollar_format(scale = 1e-3), limits = c(-5000000, 600000000)) +
+  xlab("MES 2024") +
+  ylab("Rentabilidad en millones") +
+  labs(fill = "CACI (GRD)", title = "Rentabilidad de los CACI (GRD) en DIME por mes 2024") +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.title = element_text(face = "bold"),
+    legend.title = element_text(face = "bold"),
+  ) +
+  theme_minimal()
+
+ggplotly(p1)
+```
+
+## Gráfico 5. Porcentaje de rentabilidad de los CACI por mes, DIME 2024
+
+```{r}
+data_rentabilidad_per <- data_rentabilidad %>%
+  mutate(rentabilidad = if_else(is.na(rentabilidad), 0, rentabilidad)) %>% 
+  mutate(porcentaje = round(rentabilidad/sum(rentabilidad)*100, digits = 2))
+ # mutate(mes_cruce = factor(mes_cruce, levels = c("ene", "feb", "mar", "abr",
+                                         #         "may", "jun", "jul", "ago", "sep")),
+      #   caci = str_to_upper(caci))
+
+
+p2 <- ggplot(data = data_rentabilidad_per, aes(x = mes_cargue, y = porcentaje, fill = caci)) +
+  geom_bar(position = "dodge", stat = "identity", color = "black") +
+  geom_text(aes(label = porcentaje), 
+            position = position_dodge(width = 0.9),  # Centrar las etiquetas
+            size = 2,  # Ajusta el tamaño de la etiqueta para mejor visibilidad
+            color = "black",
+            vjust = -1) +
+  scale_y_continuous(n.breaks = 10) +
+  xlab("MES 2024") +
+  ylab("Porcentaje rentabilidad en millones") +
+  labs(fill = "CACI (GRD)", title = "Porcentaje de rentabilidad de los CACI (GRD) en DIME por mes 2024") +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.title = element_text(face = "bold"),
+    legend.title = element_text(face = "bold"),
+  ) +
+  theme_minimal()
+  
+ggplotly(p2)
+  
+```
+
+# Comportamiento poblacional al interior de cada uno de los CACI, DIME 2024
+
+```{r}
+pacman::p_load(apyramid, epikit)
+
+data_grd_2_graficos <- data_costo_total_3 %>% 
+  filter(mes_cargue %in% c ("oct", "nov", "dic")) %>% 
+  mutate(grup_edad = age_categories(edad, lower = 0, upper = 80, by = 10))
+ 
+ data_grafico_piramide <- data_grd_2_graficos%>%
+   group_by(grup_edad, sexo, caci) %>% 
+   summarise(poblacion = n_distinct(identificacion)) %>% 
+  mutate(poblacion = ifelse(sexo == "F", -poblacion, poblacion),
+         caci = str_to_upper(caci)) %>% 
+    ungroup()# Asigna valores negativos a "F" para visualizar correctamente 
+
+# Crear el gráfico de pirámide poblacional por CACI
+ggplot(data_grafico_piramide, aes(x = grup_edad, y = poblacion, fill = sexo)) +
+  geom_bar(stat = "identity", color = "black") +
+  coord_flip() +  # Girar el gráfico para tener la forma de pirámide
+  scale_y_continuous(labels = abs, n.breaks = 10) +  # Asegurarse de que las etiquetas sean  positivas
+  facet_wrap(~ caci) +  # Crear un panel por cada valor de CACI
+  labs(title = "Pirámide Poblacional por CACI", x = "Grupo de Edad", y = "Población") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text(face = "bold")
+  )
+
+```

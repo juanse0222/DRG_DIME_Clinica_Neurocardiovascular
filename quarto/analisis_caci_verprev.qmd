@@ -1,0 +1,222 @@
+---
+title: "Análisis CACI Mensual"
+author: "Juan Sebastian Hurtado Zapata"
+format: 
+   ppt:
+editor: visual
+  echo: false
+  warning: false
+---
+
+```{r}
+# Cargar los paquetes
+pacman::p_load(tidyverse, janitor, lubridate, flextable, gtsummary, rio, hms, epikit, scales, gt)
+
+## Cargar bases de datos
+data_caci_2 <- import("data_caci_2.xlsx")
+
+```
+
+### Tabla de caracterización de CACI SCA
+
+```{r}
+
+# Analisis de los CACI mesual Clínica DIME Neurocardiovascular, año 2023
+
+## Síndrome Coronario Agudo (SCA)
+
+data_caci_sca <- data_caci_2 %>% 
+  arrange(fecha_ingreso, documento) %>% 
+  mutate(dupli = duplicated(documento)) %>% 
+  filter(sca == TRUE & !departamento_actual == "URGENCIAS") %>% 
+  filter(dupli == FALSE)
+
+data_caci_sca %>% 
+  mutate(mes = factor(mes, levels = c("enero", "febrero", "marzo", "abril", "mayo", "junio",
+                                      "julio", "agosto", "septiembre", "octubre",  "noviembre", "diciembre"))) %>% 
+  #filter(!procedimiento_qx == "TRASPLANTE DE CORAZON VIA ABIERTA") %>% 
+  select(edad, grup_edad, sexo, eps, estancia_horas_2, estado_al_alta, remision_a_cirugia,
+         total_cuenta, trimestre, mes) %>% 
+  tbl_summary(by = mes, 
+              label = list(edad ~ "Edad",
+                           grup_edad ~ "Grupo edad",
+                           sexo ~ "Sexo",
+                           eps ~ "EAPB",
+                           estancia_horas_2 ~ "Estancia días", 
+                           estado_al_alta ~ "Condición del alta",
+                           remision_a_cirugia ~ "Remisión a cirugía",
+                           #procedimiento_qx ~ "Procedimiento quirúrgico", 
+                           total_cuenta ~ "Total cuenta"
+                           ),
+              statistic = list(all_continuous() ~ "{median} ({p25}, {p75})", all_categorical() ~ "{n} ({p}%)"),
+              missing = "no"
+              )  %>% 
+   bold_labels() %>%
+   italicize_labels() %>%
+   add_overall(last = TRUE) %>% 
+   as_flex_table() 
+```
+
+### Tabla caracterización de CACI ACV
+
+```{r}
+data_caci_2 %>% 
+  filter(acv == TRUE & !departamento_actual == "URGENCIAS") %>% 
+  distinct(documento, fecha_ingreso, .keep_all = TRUE) %>% 
+  mutate(mes = format(fecha_ingreso, format = "%B")) %>% 
+  mutate(mes = factor(mes, levels = c("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",  "noviembre", "diciembre"))) %>% 
+  #filter(!procedimiento_qx == "TRASPLANTE DE CORAZON VIA ABIERTA") %>% 
+  select(edad, grup_edad, sexo, eps, estancia_horas_2, estado_al_alta, remision_a_cirugia,
+         total_cuenta, mes) %>% 
+  tbl_summary(by = mes, 
+              label = list(edad ~ "Edad",
+                           grup_edad ~ "Grupo edad",
+                           sexo ~ "Sexo",
+                           eps ~ "EAPB",
+                           estancia_horas_2 ~ "Estancia días", 
+                           estado_al_alta ~ "Condición del alta",
+                           remision_a_cirugia ~ "Remisión a cirugía",
+                           #procedimiento_qx ~ "Procedimiento quirúrgico",
+                           total_cuenta ~ "Total cuenta"
+              ),
+              statistic = list(all_continuous() ~ "{median} ({p25}, {p75})", all_categorical() ~ "{n} ({p}%)"),
+              missing = "no"
+  ) %>% 
+  bold_labels() %>%
+  italicize_labels() %>%
+  add_overall(last = TRUE) %>% 
+  as_flex_table()
+```
+
+### Tabla de caracterización de CACI ICC
+
+```{r}
+data_caci_2 %>% 
+  filter(icc == TRUE & !departamento_actual == "URGENCIAS") %>% 
+  distinct(documento, fecha_ingreso, .keep_all = TRUE) %>% 
+  #filter(!procedimiento_qx == "TRASPLANTE DE CORAZON VIA ABIERTA") %>% 
+  select(edad, grup_edad, sexo, eps, estancia_horas_2, estado_al_alta, remision_a_cirugia,
+         total_cuenta, mes) %>% 
+  tbl_summary(by = mes, 
+              label = list(edad ~ "Edad",
+                           grup_edad ~ "Grupo edad",
+                           sexo ~ "Sexo",
+                           eps ~ "EAPB",
+                           estancia_horas_2 ~ "Estancia días", 
+                           estado_al_alta ~ "Condición del alta",
+                           remision_a_cirugia ~ "Remisión a cirugía",
+                           total_cuenta ~ "Total cuenta"
+              ),
+              statistic = list(all_continuous() ~ "{median} ({p25}, {p75})", all_categorical() ~ "{n} ({p}%)"),
+              missing = "no"
+  ) %>% 
+  bold_labels() %>%
+  italicize_labels() %>%
+  as_flex_table()
+```
+
+### Tabla de caracterización de CACI Transplante
+
+```{r}
+
+```
+
+## Tablas de costo por mes CACI
+### CACI SCA
+```{r}
+data_caci_2 %>% 
+  filter(sca == TRUE & !departamento_actual == "URGENCIAS") %>% 
+  distinct(documento, fecha_ingreso, .keep_all = TRUE) %>% 
+  group_by(mes) %>% 
+  summarise(total_cuenta_sum = sum(total_cuenta),
+            n_tcuenta = n(),
+            mediana = median(total_cuenta),
+            rango_iq = IQR(total_cuenta),
+            p25 = quantile(total_cuenta, 0.25),
+            p75 = quantile(total_cuenta, 0.75)) %>% 
+  select(mes, n_tcuenta, total_cuenta_sum, mediana, p25, p75, rango_iq) %>%
+  mutate(mes = str_to_title(mes)) %>% 
+  adorn_totals("row") %>% 
+  mutate_at(vars(mediana, rango_iq, p25, p75), dollar) %>%
+  rename("Mes" = mes, 
+         "Atenciones" = n_tcuenta,
+         "Total cuenta" = total_cuenta_sum,
+         "Mediana" = mediana,
+         "Rango IQ" = rango_iq,
+         "P25" = p25,
+         "P75" = p75,
+         )%>% 
+  flextable() 
+  theme_zebra()
+```
+
+### CACI ACV
+```{r}
+data_caci_2 %>% 
+  filter(acv == TRUE & !departamento_actual == "URGENCIAS") %>% 
+  distinct(documento, fecha_ingreso, .keep_all = TRUE) %>% 
+  group_by(mes) %>% 
+  summarise(total_cuenta_sum = sum(total_cuenta),
+            promedio = mean(total_cuenta),
+            sd = sd(total_cuenta, na.rm = TRUE),
+            n_tcuenta = n()) %>%
+  mutate(se_tcuenta = sd / sqrt(n_tcuenta),
+         lower.ci.cuenta = promedio - qt(1 - (0.05 / 2), n_tcuenta - 1) * se_tcuenta,
+         upper.ci.cuenta = promedio + qt(1 - (0.05 / 2), n_tcuenta - 1) * se_tcuenta) %>% 
+  select(mes, n_tcuenta, total_cuenta_sum, promedio,  lower.ci.cuenta, upper.ci.cuenta) %>%
+  mutate(mes = str_to_title(mes)) %>% 
+  adorn_totals("row") %>% 
+  mutate_at(vars(total_cuenta_sum, promedio, lower.ci.cuenta, upper.ci.cuenta), dollar) %>%
+  rename("Mes" = mes, 
+         "Promedio" = promedio,
+         "Costo total" = total_cuenta_sum,
+         "Atenciones" = n_tcuenta,
+         "IC Inferior" = lower.ci.cuenta,
+         "IC Superior" = upper.ci.cuenta)%>%
+  flextable() %>% 
+  theme_zebra()
+```
+
+### CACI ICC
+```{r}
+data_caci_2 %>% 
+  filter(icc == TRUE & !departamento_actual == "URGENCIAS") %>% 
+  distinct(documento, fecha_ingreso, .keep_all = TRUE) %>% 
+  group_by(mes) %>% 
+  summarise(total_cuenta_sum = sum(total_cuenta),
+            promedio = mean(total_cuenta),
+            sd = sd(total_cuenta, na.rm = TRUE),
+            n_tcuenta = n()) %>%
+  mutate(se_tcuenta = sd / sqrt(n_tcuenta),
+         lower.ci.cuenta = promedio - qt(1 - (0.05 / 2), n_tcuenta - 1) * se_tcuenta,
+         upper.ci.cuenta = promedio + qt(1 - (0.05 / 2), n_tcuenta - 1) * se_tcuenta) %>% 
+  select(mes, n_tcuenta, total_cuenta_sum, promedio,  lower.ci.cuenta, upper.ci.cuenta) %>%
+  mutate(mes = str_to_title(mes)) %>% 
+  adorn_totals("row") %>% 
+  mutate_at(vars(total_cuenta_sum, promedio, lower.ci.cuenta, upper.ci.cuenta), dollar) %>%
+  rename("Mes" = mes, 
+         "Promedio" = promedio,
+         "Costo total" = total_cuenta_sum,
+         "Atenciones" = n_tcuenta,
+         "IC Inferior" = lower.ci.cuenta,
+         "IC Superior" = upper.ci.cuenta)%>%
+  flextable() %>% 
+  theme_zebra()
+```
+
+## Tabla de costos totales CACI por mes
+```{r}
+tabla_totales_cuenta_final %>% 
+    mutate(mes = str_to_title(mes)) %>% 
+  adorn_totals("both") %>% 
+  rename("Total SCA" = total_cuenta_sum.x,
+         "Total ACV" = total_cuenta_sum.y,
+         "Total ICC" = total_cuenta_sum.x.x,
+         "Total Trasplante" = total_cuenta_sum.y.y,
+         "Mes" = mes) %>% 
+  mutate(across(-1, replace_na, 0)) %>% 
+  mutate(across(-1,scales::dollar)) %>%
+  flextable() %>% 
+  theme_zebra()
+```
+

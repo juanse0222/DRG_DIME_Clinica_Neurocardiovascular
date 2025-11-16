@@ -1,0 +1,103 @@
+---
+title: "ANÁLISIS DE GRUPOS RELACIONADOS DE DIAGNÓSTICO, DIME 2024"
+author: "Juan Sebastian Hurtado Zapata"
+format: 
+  revealjs:
+    logo: DIME_logo.png
+    incremental: true   
+    code-fold: false 
+    footer: "GRD 2024 I Semestre"
+editor: visual
+---
+
+```{r}
+### cargar los paquetes: 
+pacman::p_load(tidyverse, janitor, lubridate, flextable, gtsummary, rio, hms, 
+               epikit, scales, gt, zoo, readxl)
+
+data_costo_total_3 <- import("data_costo_total_3.csv")
+```
+
+```{r}
+tabla_ordenes_costo_total_2 <- data_costo_total_3 %>% 
+  filter(str_detect(mes_caci, "ene|feb|mar|abr|may|jun")) %>% 
+  mutate(mes_cargue = factor(mes_cargue, levels = c("ene", "feb", "mar","abr", "may", "jun"))) %>% 
+  mutate(departamento = case_when(departamento == "UCIN" ~ "UCIN",
+                                  departamento == "UCIN 5 PISO" ~ "UCIN", 
+                                  departamento == "HOSPITALIZACION 3 PISO" ~ "HOSPITALIZACION",
+                                  departamento == "UCI-UCIN ANGIO" ~ "UCIN",
+                                  TRUE ~ departamento)) %>% 
+  group_by(mes_cargue) %>% 
+  summarise(costo_orden = sum(valor),
+            pacientes = n_distinct(identificacion),
+            promedio = costo_orden/pacientes,
+            mediana = median(valor)) %>% 
+  ungroup()
+
+tabla_ordenes_costo_total_2 
+```
+
+
+```{r}
+tabla_ordenes_costo_total <- data_costo_total_3 %>% 
+  filter(str_detect(mes_caci, "ene|feb|mar|abr|may|jun")) %>% 
+  mutate(departamento = case_when(departamento == "UCIN" ~ "UCIN",
+                                    departamento == "UCIN 5 PISO" ~ "UCIN", 
+                                    departamento == "HOSPITALIZACION 3 PISO" ~ "HOSPITALIZACION",
+                                    departamento == "UCI-UCIN ANGIO" ~ "UCIN",
+                                    TRUE ~ departamento)) %>% 
+  group_by(caci,mes_caci) %>% 
+  summarise(costo_orden = sum(valor),
+            pacientes = n_distinct(identificacion),
+            promedio = costo_orden/pacientes,
+            mediana = median(valor)) %>% 
+  ungroup()
+
+tabla_ordenes_agrupada_pacientes <- data_costo_total_3 %>%
+  group_by(identificacion, mes_egreso, caci) %>% 
+  summarise(costo = sum(valor)) %>% 
+  mutate(costo = as.numeric(costo)) %>% 
+  ungroup()
+```
+
+```{r}
+pacman::p_load(plotly, viridis, hrbrthemes)
+
+color_caci = c(acv = "skyblue", icc = "orange", sca = "pink", txc = "burlywood") 
+
+caci_boxplot <- ggplot(tabla_ordenes_agrupada_pacientes, 
+                       mapping = aes(x = caci,y = costo, fill = caci)) +
+  geom_boxplot() +
+  geom_jitter(color="black", size=0.4, alpha=0.9) +
+  scale_y_continuous(labels = scales::dollar_format(), n.breaks = 20) +
+  scale_fill_manual (values =  color_caci) +
+  xlab("GRD") +
+  ylab("COSTOS") +
+  theme_classic() +
+  theme(
+    axis.title = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  facet_wrap("mes_egreso") 
+
+ggplotly(caci_boxplot)
+```
+
+```{r}
+tabla_1_general_grd <- tabla_ordenes_agrupada_pacientes %>% 
+  group_by(mes_caci) %>% 
+  summarise(Total = sum(costo),
+            Pacientes = n_distinct(identificacion),
+            #Costo_medio = Total/Pacientes,
+            Mediana = median(costo), 
+            'RIQ-I (0.25)' = quantile(costo, 0.25),
+            'RIQ-S (0.75)' = quantile(costo, 0.75)) %>% 
+  rename(Mes = mes_caci) %>% 
+  mutate_at(vars(Total, Mediana,  'RIQ-I (0.25)', 'RIQ-S (0.75)'), ~ scales::dollar(.x, big.mark = ".")) 
+
+%>% 
+  flextable()
+
+tabla_1_general_grd %>% 
+  flextable()
+```
