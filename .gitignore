@@ -5,6 +5,7 @@
 .Ruserdata
 .RDataTmp
 .RDataTmp1
+*Rproj
 
 # R packages / caches
 .Renviron
