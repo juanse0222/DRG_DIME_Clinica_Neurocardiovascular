@@ -19,11 +19,11 @@ tabla_ordenes_costo_total <- data_costo_total_3 %>%
   mutate(mes_año = as.Date(fecha_cargue, format = "%b-%Y")) %>% 
   filter(año == "2025") %>% 
   #mutate(costo = replace_na(costo, 0)) %>% 
-  group_by(caci_3, mes_cargue) %>% 
-  summarise(costo_orden = sum(costo_2),
+  group_by(caci, mes_cargue) %>% 
+  summarise(costo_orden = sum(costo),
             venta = sum(venta),
             pacientes = n_distinct(identificacion),
-            promedio = mean(costo_2), .groups = "drop") %>% 
+            promedio = mean(costo), .groups = "drop") %>% 
   flextable()
 
 tabla_ordenes_costo_total
@@ -32,14 +32,14 @@ tabla_ordenes_costo_total
 ### Columna de total para todos los CACI
 data_costo_total_4 <- data_costo_total_3 %>% 
   filter(año == "2025") %>% 
-  group_by(identificacion, mes_cargue, año, caci_3) %>% 
-  summarise(costo = sum(costo_2), 
+  group_by(identificacion, mes_cargue, año, caci) %>% 
+  summarise(costo = sum(costo), 
             venta = sum(venta), .groups = "drop")
 
 data_caci_total <- data_costo_total_3 %>% 
   filter(año == "2025") %>% 
   group_by(identificacion, mes_cargue) %>% 
-  summarise(Total = sum(costo_2), .groups = "drop")
+  summarise(Total = sum(costo), .groups = "drop")
 
 data_caci_total_2 <- data_caci_total %>% 
   group_by(mes_cargue) %>% 
@@ -47,12 +47,12 @@ data_caci_total_2 <- data_caci_total %>%
 
 ### Tabla general de costo medio paciente.
 data_costo_total_5 <- data_costo_total_4 %>% 
-  group_by(mes_cargue, caci_3) %>% 
+  group_by(mes_cargue, caci) %>% 
   summarise(costo_orden = sum(costo),
             pacientes = n_distinct(identificacion),
             promedio = costo_orden/pacientes,
             mediana = median(costo), .groups = "drop")  %>% 
-  pivot_wider(id_cols = mes_cargue, names_from  = caci_3, 
+  pivot_wider(id_cols = mes_cargue, names_from  = caci, 
               values_from = c(pacientes, mediana, costo_orden)) %>% 
   select(mes_cargue,
          pacientes_ACV, mediana_ACV, costo_orden_ACV,
@@ -170,13 +170,13 @@ tabla_costo_medio_2025 <-  data_costo_total_5 %>%
 
 ### Tabla de costo, venta y rentabilidad
 data_costo_total_6 <- data_costo_total_4 %>% 
-  group_by(mes_cargue, caci_3) %>% 
+  group_by(mes_cargue, caci) %>% 
   summarise(costo_orden = sum(costo),
             venta = sum(venta), .groups = "drop")  %>% 
   mutate(rentabilidad = venta - costo_orden)%>% 
   mutate(rentabilidad = as.numeric(rentabilidad)) %>% 
   mutate(rentabilidad_2 = round(rentabilidad/venta*100, digits = 2)) %>% 
-  pivot_wider(id_cols = mes_cargue, names_from  = caci_3, 
+  pivot_wider(id_cols = mes_cargue, names_from  = caci, 
               values_from = c(costo_orden, venta, rentabilidad, rentabilidad_2)) %>% 
   select(mes_cargue,
          costo_orden_ACV, venta_ACV, rentabilidad_ACV, rentabilidad_2_ACV, 
