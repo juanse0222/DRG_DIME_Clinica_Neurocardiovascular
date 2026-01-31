@@ -19,11 +19,11 @@ tabla_ordenes_costo_total <- data_costo_total_3 %>%
   mutate(mes_año = as.Date(fecha_cargue, format = "%b-%Y")) %>% 
   filter(año == "2025") %>% 
   #mutate(costo = replace_na(costo, 0)) %>% 
-  group_by(caci, mes_cargue) %>% 
-  summarise(costo_orden = sum(costo),
+  group_by(caci_3, mes_cargue) %>% 
+  summarise(costo_orden = sum(costo_2),
             venta = sum(venta),
             pacientes = n_distinct(identificacion),
-            promedio = mean(costo), .groups = "drop") %>% 
+            promedio = mean(costo_2), .groups = "drop") %>% 
   flextable()
 
 tabla_ordenes_costo_total

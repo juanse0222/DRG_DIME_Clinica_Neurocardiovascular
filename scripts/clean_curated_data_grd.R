@@ -5,21 +5,47 @@ pacman::p_load(tidyverse, janitor, lubridate, flextable, gtsummary, rio, hms,
 
 ### 1. Charge database admissions patients: Database coming from admission and discharges from 2017 to 2025 and it is result of pre-screening and pre-processing 
 data_ingresos <- import("/Users/juansebastianhurtadozapata/Desktop/DIME /Documentos EDI/16. Egresos DIME Mensual/egresos_dime_mensual/data_2025/data_egresos_2017_2025.rda") ## Database update until june 2025
+data_ingresos <- import(here("data", "admission_data", "data_a_2024_2025.rds"))
 
 ### 2. Sales historic and last trimester of the year that I'm analyzing.
 data_sales <- import(here("data", "data_costs", "data_sales.rds"))
 
+class(data_ingresos$`FECHA INGRESO`)
 
 ## 3. Processing discharge database
 data_ingresos_2 <- data_ingresos %>%
-  clean_names() %>%
-  mutate(documento = as.character(documento)) %>%
-  mutate(across(starts_with("fecha"), as.Date)) %>%
-  arrange(documento, desc(fecha_ingreso)) %>%
-  mutate(
-    mes = month(fecha_ingreso, label = T, abbr = T),
-    año = year(fecha_ingreso)) %>% 
-  filter(fecha_ingreso > "2023-12-31")
+  mutate(documento = as.character(documento),
+         mes = month(fecha_ingreso, label = T, abbr = T),
+         año = year(fecha_ingreso)) %>% 
+  select(-c(telefono_1, telefono_2, v19, v28))
+     
+
+### 3.1 Joining and arraign sales database including the last period (last trimester)
+
+sales_detail_1 <- import(here("data", "data_costs", "ventas_detallado_oct_dic_2025.xls"), 
+                              which = "ventas_planes_detallado", skip = 3)
+
+sales_detail_2 <- import(here("data", "data_costs", "ventas_detallado_oct_dic_2025.xls"), 
+                         which = "ventas_planes_detallado 2", header = FALSE)
+
+sales_detail_3 <- import(here("data", "data_costs", "ventas_detallado_oct_dic_2025.xls"), 
+                         which = "ventas_planes_detallado 3", header = FALSE)
+
+sales_detail_4 <- import(here("data", "data_costs", "ventas_detallado_oct_dic_2025.xls"), 
+                         which = "ventas_planes_detallado 4", header = FALSE)
+as
+sales_no_names <- rbind(sales_detail_2, sales_detail_3, sales_detail_4)
+
+names(sales_no_names) <- names(sales_detail_1)
+
+sales_dic_oct_2025 <- rbind(sales_detail_1, sales_no_names) %>% 
+  clean_names()
+
+data_sales <- rbind(data_sales, sales_dic_oct_2025) ###  final sales database 
+
+
+sales <- import(here("data", "sales data", "sales_detail_2025.csv"), 
+                fill = Inf, skip = 3, header = T) ### Update file, last download using all information from 2024 to 2025
 
 ### 4. Please continue with pre-processing in script "function_diagnosis_algorithm_caci"
 
@@ -27,9 +53,9 @@ data_ingresos_2 <- data_ingresos %>%
   
 ##  5.1. import CACI's databases from folder
 ### Every-database must conserve the same structure and names of variables
-data_sca <- import(here("data", "sca_2023.xlsx"))
+data_sca <- import(here("data", "sca_2023.csv"), header = T)
 data_acv <- import(here("data", "acv_2023.xls"))
-data_icc <- import(here("data", "Consolidado IC -TxC.csv"))
+data_icc <- import(here("data", "Consolidado IC -TxC.xlsx"))
 data_txc <- import(here("data", "Consolidado IC -TxC.xlsx"), which = "TxC")
 data_tep <- import(here("data", "tep_2025.xlsx"))
   
@@ -40,13 +66,13 @@ data_tep <- import(here("data", "tep_2025.xlsx"))
 ### SCA
 data_sca_2 <- data_sca %>% 
   clean_names() %>% 
-  mutate(fecha_de_ingreso = as.Date(fecha_de_ingreso)) %>% 
+  mutate(fecha_de_ingreso = as.Date(fecha_de_ingreso, format = "%d/%m/%Y")) %>% 
   filter(fecha_de_ingreso > "2023-12-31") %>% 
   mutate(cedula = str_extract(cedula, "\\d+"),
-         mes_sca = month(fecha_de_ingreso, label = T),
-         year = year(fecha_de_ingreso)) %>% 
+         mes = month(fecha_de_ingreso, label = T, abbr = T),
+         año = year(fecha_de_ingreso)) %>% 
   mutate(fecha_de_ingreso = as.Date(fecha_de_ingreso)) %>% 
-  mutate(cruce = str_c(cedula, mes_sca, year, .sep = ""))
+  mutate(cruce = str_c(cedula, mes, año, .sep = ""))
 
 ### ACV
 data_acv_2 <- data_acv %>% 
@@ -55,9 +81,9 @@ data_acv_2 <- data_acv %>%
          fecha_ingreso = as.Date(fecha_ingreso, origin = "1899-12-30")) %>% 
   filter(fecha_ingreso > "2023-12-31" & fecha_ingreso < "2025-10-01") %>% 
   mutate(cedula = str_extract(cedula, ("\\d+")),
-         mes_acv = month(fecha_ingreso, label = T),
-         year = year(fecha_ingreso)) %>% 
-  mutate(cruce = str_c(cedula, mes_acv, year, .sep = "")) 
+         mes = month(fecha_ingreso, label = T, abbr = T),
+         año = year(fecha_ingreso)) %>% 
+  mutate(cruce = str_c(cedula, mes, año, .sep = "")) 
 
 
 ### ICC
@@ -65,22 +91,23 @@ data_icc_2 <- data_icc %>%
   clean_names() %>% 
   mutate(fecha_de_ingreso = as.Date(fecha_de_ingreso)) %>% 
   filter(fecha_de_ingreso > "2023-12-31") %>% 
-  mutate(numero_de_identificacion = str_extract(numero_de_identificacion, ("//d+")),
-         mes_icc = month(fecha_de_ingreso, label = T),
-         year = year(fecha_de_ingreso)) %>% 
-  mutate(cruce = str_c(numero_de_identificacion, mes_icc, year, .sep = ""),
+  mutate(numero_de_identificacion = as.character(numero_de_identificacion),
+         #numero_de_identificacion = str_extract(numero_de_identificacion, ("//d+"),
+         mes = month(fecha_de_ingreso, label = T, abbr = T),
+         año = year(fecha_de_ingreso)) %>% 
+  mutate(cruce = str_c(numero_de_identificacion, mes, año, .sep = ""),
          fecha_de_ingreso = if_else(fecha_de_ingreso > "2025-03-31", 
                                     as.Date(fecha_de_ingreso, format = "%d/%m/%y"), fecha_de_ingreso))
 
 ### TXC
 data_txc_2 <- data_txc %>% 
   clean_names() %>% 
-  mutate(fecha_de_ingreso = as.Date(fecha_de_ingreso)) %>% 
+  mutate(fecha_de_ingreso = as.Date(fecha_de_ingreso, format ="%Y-%m-%d")) %>% 
   filter(fecha_de_ingreso > "2023-12-31") %>% 
   mutate(numero_de_identificacion = str_extract(numero_de_identificacion, "\\d+"),
-         mes_txc = month(fecha_de_ingreso, label = T),
-         year = year(fecha_de_ingreso)) %>% 
-  mutate(cruce = str_c(numero_de_identificacion, mes_txc, year, .sep = ""))
+         mes = month(fecha_de_ingreso, label = T, abbr = T),
+         año = year(fecha_de_ingreso)) %>% 
+  mutate(cruce = str_c(numero_de_identificacion, mes, año, .sep = ""))
 
 
 ### TEP
@@ -89,9 +116,9 @@ data_tep_2 <- data_tep %>%
   mutate(fecha_de_ingreso_a_uci_ucin = as.Date(fecha_de_ingreso_a_uci_ucin)) %>% 
   filter(fecha_de_ingreso_a_uci_ucin > "2023-12-31") %>% 
   mutate(numero_de_identificacion = str_extract(numero_de_identificacion, "\\d+"),
-         mes_tep = month(fecha_de_ingreso_a_uci_ucin, label = T),
-         year = year(fecha_de_ingreso_a_uci_ucin)) %>% 
-  mutate(cruce = str_c(numero_de_identificacion, mes_tep, year, .sep = ""))
+         mes = month(fecha_de_ingreso_a_uci_ucin, label = T),
+         año = year(fecha_de_ingreso_a_uci_ucin)) %>% 
+  mutate(cruce = str_c(numero_de_identificacion, mes, año, .sep = ""))
 
 
 ############################################# 7. Joining database admission and CACI - SCA #############################################
@@ -104,8 +131,13 @@ data_ingresos_3 <- result_2 %>%
          cruce = str_c(documento, mes,año, .sep = ""))
 
 ### 7.1.1. Join SCA database with admission data-set adjusted above. 
-data_ingresos_sca <- left_join(x = data_ingresos_3, select(data_sca_2, cruce,
-                                                         diagnostico, mes_sca), by = "cruce")
+data_ingresos_sca <- left_join(x = data_ingresos_3, 
+                               select(data_sca_2,cedula, mes, año, diagnostico), 
+                               by = c("mes", "año", "documento" = "cedula"))
+
+data_ingresos_sca <- data_ingresos_sca %>% 
+  distinct(documento, fecha_ingreso, numero_de_ingreso, numero_de_cuenta, diag_eg_pr, 
+           diagnostico_ingreso_secundario, estancia_horas, fecha_de_egreso, .keep_all = T)
 
 ### 7.2. Arrange database fulfilling with the criteria for including patients about SCA in the analysis.
 data_ingreso_sca_2.1 <- data_ingresos_sca %>% 
@@ -113,25 +145,29 @@ data_ingreso_sca_2.1 <- data_ingresos_sca %>%
   filter(str_detect(departamento_actual, "UCI|UCIN|HOSPITA|URGENCIA")|
            str_detect(departamento_de_ingreso, "UCI|UCIN|HOSPITA|URGENCIA")) %>% 
   mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " "),
-         dif_days = as.numeric(fecha_de_egreso - fecha_ingreso)) %>% 
-  filter(!str_detect(departamento_filtro, "URGENCIAS URGENCIAS|ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & dif_days > 1)
+         dif_days = as.numeric(as.Date(fecha_de_egreso) - as.Date(fecha_ingreso))) %>% 
+  filter(!(departamento_actual == "URGENCIAS URGENCIAS" & estancia_horas < 40)|
+           !str_detect(departamento_filtro, "URGENCIAS URGENCIAS|
+                       ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & estancia_horas < 36)
 
 nrow(data_ingreso_sca_2.1[!is.na(data_ingreso_sca_2.1$diagnostico), ])
 
 
 ### 7.3. Patients just is part of the CACI (checking correlation between CACI and criteria that was used to define SCA in my code)
 data_ingreso_sca_2.2 <- data_ingreso_sca_2.1 %>% 
-  filter(!is.na(mes_sca))
+  filter(!is.na(diagnostico))
 
 
 ### 7.4. Processing only patients that are part of the CACI
 data_ingresos_sca_2 <- data_ingresos_sca %>% 
-  filter(!is.na(mes_sca)) %>% 
+  filter(!is.na(diagnostico)) %>% 
   distinct(numero_de_cuenta, fecha_ingreso, documento, .keep_all = TRUE) %>% 
   filter(str_detect(departamento_actual, "HOSPI|UCI|UCIN|URG")) %>% 
   mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " "),
-         dif_days = as.numeric(fecha_de_egreso - fecha_ingreso)) %>%  
-  filter(!str_detect(departamento_filtro, "URGENCIAS URGENCIAS|ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS"))
+         dif_days = as.numeric(as.Date(fecha_de_egreso) - as.Date(fecha_ingreso))) %>% 
+  filter(!(departamento_actual == "URGENCIAS URGENCIAS" & estancia_horas < 40)|
+           !str_detect(departamento_filtro, "URGENCIAS URGENCIAS|
+                       ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & estancia_horas < 36)
 
 data_ingresos_sca_2 %>% 
   tabyl(mes, año)
@@ -145,8 +181,7 @@ data_ingresos_sca_3 <- data_ingresos_sca_3 %>%
 ### Include variables that I gonna need later for reviewing conditions in the patients
 data_ingresos_sca_3 <- data_ingresos_sca_3 %>% 
   mutate(caci_3 = if_else(is.na(diagnostico), caci_2, "SCA")) %>% 
-  rename("diagnostico" = diagnostico,
-         "mes_caci" = mes_sca)
+  rename("diagnostico" = diagnostico)
 
 nrow(data_ingresos_sca_3[!is.na(data_ingresos_sca_3$diagnostico), ])
 
@@ -161,8 +196,8 @@ nrow(data_ingresos_sca_3[!is.na(data_ingresos_sca_3$diagnostico), ])
 
 ### 8.1 Join ACV database with admission data-set adjusted above. 
 data_ingresos_acv_1 <- left_join(x = data_ingresos_3, 
-                               select(data_acv_2, cruce, dignostico, mes_acv), 
-                               by = "cruce") 
+                               select(data_acv_2, dignostico, mes, año, cedula), 
+                               by = c("mes", "año", "documento" = "cedula")) 
 
 ### 8.2. Arrange database fulfilling with the criteria for including patients about ACV in the analysis.
 data_ingresos_acv_1.2 <- data_ingresos_acv_1 %>% 
@@ -170,8 +205,10 @@ data_ingresos_acv_1.2 <- data_ingresos_acv_1 %>%
   distinct(documento, numero_de_ingreso, fecha_ingreso, .keep_all = T) %>% 
   filter(str_detect(departamento_actual, "HOSPI|UCI|UCIN|URG")) %>% 
   mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " "),
-         dif_days = as.numeric(fecha_de_egreso - fecha_ingreso)) %>%  
-  filter(!str_detect(departamento_filtro, "URGENCIAS URGENCIAS|ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS"))
+         dif_days = as.numeric(as.Date(fecha_de_egreso) - as.Date(fecha_ingreso))) %>% 
+  filter(!(departamento_actual == "URGENCIAS URGENCIAS" & estancia_horas < 40)|
+           !str_detect(departamento_filtro, "URGENCIAS URGENCIAS|
+                       ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & estancia_horas < 36)
 
 
 #data_ingresos_acv_2 <- data_ingresos_acv %>%
@@ -195,8 +232,12 @@ data_ingreso_acv_2.1 <- data_ingresos_acv_1 %>%
   filter(str_detect(departamento_actual, "UCI|UCIN|HOSPITA|URGENCIA")|
            str_detect(departamento_de_ingreso, "UCI|UCIN|HOSPITA|URGENCIA")) %>% 
   mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " "),
-         dif_days = as.numeric(fecha_de_egreso - fecha_ingreso)) %>% 
-  filter(!str_detect(departamento_filtro, "URGENCIAS URGENCIAS|ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & dif_days > 1)
+         dif_days = as.numeric(as.Date(fecha_de_egreso) - as.Date(fecha_ingreso))) %>% 
+  mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " "),
+         dif_days = as.numeric(as.Date(fecha_de_egreso) - as.Date(fecha_ingreso))) %>% 
+  filter(!(departamento_actual == "URGENCIAS URGENCIAS" & estancia_horas < 40)|
+           !str_detect(departamento_filtro, "URGENCIAS URGENCIAS|
+                       ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & estancia_horas < 36)
 
 
 ### 8.4 Bind rows in database ACV CACI patients with ACV patients I did find using myself criteria 
@@ -209,8 +250,7 @@ data_ingresos_acv_3 <- data_ingresos_acv_3 %>%
 ### 8.5. Include variables that I gonna need later for reviewing conditions in the patients
 data_ingresos_acv_3 <- data_ingresos_acv_3 %>% 
   mutate(caci_3 = if_else(is.na(dignostico), caci_2, "ACV")) %>% 
-  rename("diagnostico" = dignostico,
-         "mes_caci" = mes_acv)
+  rename("diagnostico" = dignostico)
 
 ############################################# 9. Joining database admission and CACI - ICC #############################################
 
@@ -221,8 +261,8 @@ data_icc_2 <- data_icc_2 %>%
 
 
 ### 9.2. Arrange database fulfilling with the criteria for including patients about ICC in the analysis.
-data_ingresos_icc <- left_join(x = data_ingresos_3, select(data_icc_2, numero_de_cuenta, mes_icc, eapb), 
-                              by = c("numero_de_cuenta" = "numero_de_cuenta"))
+data_ingresos_icc <- left_join(x = data_ingresos_3, select(data_icc_2, mes, año, numero_de_identificacion, eapb), 
+                              by = c("mes", "año", "documento" = "numero_de_identificacion"))
 
 
 ### 9.3. Criteria to include patients with ICC in the analysis.
@@ -230,9 +270,11 @@ data_ingresos_icc_2 <- data_ingresos_icc %>%
   filter(!is.na(eapb)) %>% 
   distinct(fecha_de_egreso, fecha_ingreso, numero_de_ingreso, .keep_all = TRUE) %>% 
   filter(str_detect(departamento_actual, "HOSPI|UCI|UCIN|URG")) %>% 
-  mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " "),
-         dif_days = as.numeric(fecha_de_egreso - fecha_ingreso)) %>%  
-  filter(!str_detect(departamento_filtro, "URGENCIAS URGENCIAS|ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS"))
+  mmutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " "),
+          dif_days = as.numeric(as.Date(fecha_de_egreso) - as.Date(fecha_ingreso))) %>% 
+  filter(!(departamento_actual == "URGENCIAS URGENCIAS" & estancia_horas < 40)|
+           !str_detect(departamento_filtro, "URGENCIAS URGENCIAS|
+                       ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & estancia_horas < 36)
 
 ### 9.4. Criteria to include patients about ICC in the analysis.
 data_ingreso_icc_2.1 <- data_ingresos_icc %>% 
@@ -240,9 +282,13 @@ data_ingreso_icc_2.1 <- data_ingresos_icc %>%
   filter(str_detect(departamento_actual, "UCI|UCIN|HOSPITA|URGENCIA")|
            str_detect(departamento_de_ingreso, "UCI|UCIN|HOSPITA|URGENCIA")) %>% 
   mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " "),
-         dif_days = as.numeric(fecha_de_egreso - fecha_ingreso)) %>% 
-  filter(!str_detect(departamento_filtro, "URGENCIAS URGENCIAS|ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & dif_days > 1)
+         dif_days = as.numeric(as.Date(fecha_de_egreso) - as.Date(fecha_ingreso))) %>% 
+  filter(!(departamento_actual == "URGENCIAS URGENCIAS" & estancia_horas < 40)|
+           !str_detect(departamento_filtro, "URGENCIAS URGENCIAS|
+                       ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & estancia_horas < 36)
 
+data_ingreso_icc_2.1 %>% 
+  tabyl(dif_days)
 
 ### 9.5. Joining database ICC CACI patients with ACV patients I did find using myself criteria 
 data_ingresos_icc_3 <- rbind(data_ingreso_icc_2.1, data_ingresos_icc_2) 
@@ -255,8 +301,7 @@ data_ingresos_icc_3 <- data_ingresos_icc_3 %>%
 ### 9.6. Include variables that I gonna need later for reviewing conditions in the patients
 data_ingresos_icc_3 <- data_ingresos_icc_3 %>% 
   mutate(caci_3 = if_else(is.na(eapb), caci_2, "ICC")) %>%
-  rename("diagnostico" = eapb,
-         "mes_caci" = mes_icc)
+  rename("diagnostico" = eapb)
 
 #export(data_egresos_icc_2, "data_egresos_icc_2.xlsx")
 
@@ -266,22 +311,28 @@ data_ingresos_icc_3 <- data_ingresos_icc_3 %>%
 data_txc_2 <- data_txc_2 %>% 
   mutate(numero_de_identificacion = as.character(numero_de_identificacion))
 
-data_ingresos_txc <- left_join(x = data_ingresos_3, select(data_txc_2, numero_de_identificacion, 
-                                                         eapb, mes_txc), 
-                              by = c("documento" = "numero_de_identificacion"))
+data_ingresos_txc <- left_join(x = data_ingresos_3, 
+                               select(data_txc_2, numero_de_identificacion, 
+                                                         eapb, mes, año), 
+                              by = c("mes", "año", "documento" = "numero_de_identificacion"))
 
 ### 10.2. Criteria to include patients about TxC in the analysis.
 data_ingresos_txc_3 <- data_ingresos_txc %>% 
-  filter(!is.na(eapb)) %>% 
+  filter(!is.na(eapb)|caci_2 == "TXC") %>% 
   filter(str_detect(departamento_actual, "HOSPI|UCI|UCIN|URG")) %>% 
   mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " "),
-         dif_days = as.numeric(fecha_de_egreso - fecha_ingreso)) %>%  
-  filter(!str_detect(departamento_filtro, "URGENCIAS URGENCIAS|ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS")) %>% 
+         dif_days = as.numeric(as.Date(fecha_de_egreso) - as.Date(fecha_ingreso))) %>% 
+  filter(!(departamento_actual == "URGENCIAS URGENCIAS" & estancia_horas < 40)|
+           !str_detect(departamento_filtro, "URGENCIAS URGENCIAS|
+                       ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & estancia_horas < 36) %>% 
   mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " ")) %>% 
-  distinct(fecha_ingreso, fecha_de_egreso, numero_de_cuenta, .keep_all = T) %>% 
+  distinct(fecha_ingreso, fecha_de_egreso, documento, numero_de_ingreso, .keep_all = T) %>% 
   mutate(caci_3 = if_else(is.na(eapb), caci_2, "TXC")) %>% 
-  rename("diagnostico" = eapb,
-         "mes_caci" = mes_txc) 
+  rename("diagnostico" = eapb) 
+
+data_ingresos_txc_3 %>% 
+  group_by(caci_3) %>% 
+  summarise(n = n_distinct(documento), .groups = "drop")
 
 ############################################# 11. Joining database admission and CACI - TEP #############################################
 
@@ -290,23 +341,24 @@ data_tep_2 <- data_tep_2 %>%
   mutate(numero_de_identificacion = as.character(numero_de_identificacion))
 
 
-data_ingresos_tep <- left_join(x = data_ingresos_3, select(data_tep_2, numero_de_identificacion, 
-                                                           genero, mes_tep), 
-                               by = c("documento" = "numero_de_identificacion"))
+data_ingresos_tep <- left_join(x = data_ingresos_3, 
+                               select(data_tep_2, numero_de_identificacion, 
+                                      genero, mes, año), 
+                               by = c("mes", "año", "documento" = "numero_de_identificacion"))
 
 ### 11.2. Criteria to include patients about TEP in the analysis.
 data_ingresos_tep_3 <- data_ingresos_tep %>% 
   filter(!is.na(genero)) %>% 
-  filter(caci_2 == "TEP" & tipo_de_atencion == "HOSPITALARIO") %>% 
+  filter((caci_2 == "TEP" | !is.na(genero)) & tipo_de_atencion == "HOSPITALARIO") %>% 
   filter(str_detect(departamento_actual, "HOSPI|UCI|UCIN|URG")) %>% 
   mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " "),
-         dif_days = as.numeric(fecha_de_egreso - fecha_ingreso)) %>%  
-  filter(!str_detect(departamento_filtro, "URGENCIAS URGENCIAS|ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS")) %>% 
-  mutate(departamento_filtro = paste(departamento_de_ingreso, departamento_actual, sep = " ")) %>% 
-  distinct(fecha_ingreso, fecha_de_egreso, numero_de_cuenta, .keep_all = T) %>% 
-  mutate(caci_3 = if_else(is.na(mes_tep), caci_2, "TEP")) %>%
-  rename("diagnostico" = genero,
-         "mes_caci" = mes_tep) 
+         dif_days = as.numeric(as.Date(fecha_de_egreso) - as.Date(fecha_ingreso))) %>% 
+  filter(!(departamento_actual == "URGENCIAS URGENCIAS" & estancia_horas < 40)|
+           !str_detect(departamento_filtro, "URGENCIAS URGENCIAS|
+                       ANGIOGRAFIA URGENCIAS|CIRUGIA URGENCIAS") & estancia_horas < 36) %>% 
+  distinct(fecha_ingreso, fecha_de_egreso, numero_de_ingreso, .keep_all = T) %>% 
+  mutate(caci_3 = if_else(is.na(genero), caci_2, "TEP")) %>%
+  rename("diagnostico" = genero) 
 
 
 ############################################ 12. Joining four CACI database ###########################################################################################
@@ -314,24 +366,37 @@ data_ingresos_tep_3 <- data_ingresos_tep %>%
 data_grd <- rbind(data_ingresos_tep_3, data_ingresos_sca_3, data_ingresos_acv_3, 
                   data_ingresos_icc_3, data_ingresos_txc_3) 
 
+priority <- c(
+  "TXC" = 1,
+  "SCA" = 5,
+  "ICC" = 3,
+  "ACV" = 4,
+  "TEP" = 2
+)
+
+data_grd_clean <- data_grd %>%
+  mutate(caci_priority = priority[caci_3]) %>%
+  group_by(documento, fecha_ingreso, fecha_de_egreso,
+           numero_de_ingreso, numero_de_cuenta, total_cuenta,
+           diagnostico_egreso_principal) %>%   # this is the key part
+  slice_min(caci_priority, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(-caci_priority)
+
 ### 12.2. Evaluating count 
-data_grd %>% 
+data_grd_clean %>% 
   tabyl(caci_3)
- 
-### 13.3. I. make sure that I have the exact number of registers 
-data_grd <- data_grd %>% 
-  distinct(documento, numero_de_ingreso, numero_de_cuenta, total_cuenta, .keep_all = T)
 
 ######################################################################################################################################
 
 ## Review behavior 
 ### 14.1 Cleaning and depuration CACI - Patients with ICC diagnostics adjusted to Trasplant according with database of the CACI
-data_grd_2<- data_grd %>% 
-  mutate(caci_3 = case_when(numero_de_cuenta == "687896" ~ "TXC",
-                          numero_de_cuenta == "693686" ~ "TXC", 
-                          TRUE ~ caci_3)) %>% 
+#data_grd_2<- data_grd %>% 
+#  mutate(caci_3 = case_when(numero_de_cuenta == "687896" ~ "TXC",
+#                          numero_de_cuenta == "693686" ~ "TXC", 
+#                          TRUE ~ caci_3)) %>% 
   #filter(!str_detect(diagnostico_ingreso_princial, "DENGUE|NEUMONIA|PIEL|PURPURA")) %>% 
-  mutate(dif_days = if_else(is.na(dif_days), as.numeric(as.Date("2025-06-30") - fecha_ingreso), dif_days))
+#  mutate(dif_days = if_else(is.na(dif_days), as.numeric(as.Date("2025-06-30") - fecha_ingreso), dif_days))
 
 
 ### Evaluating again total number patients by CACI
@@ -341,9 +406,9 @@ data_grd_2 %>%
 ### 14.2. Inpatient days distribution and characteristics over time
 data_grd_2 %>% 
   mutate(dif_days = fecha_de_egreso - fecha_ingreso) %>% 
-  summarise(median = median(dif_days),
-            RI = quantile(dif_days, 0.25),
-            RS = quantile(dif_days, 0.75))
+  summarise(median = median(dif_days, na.rm = T),
+            RI = quantile(dif_days, 0.25, na.rm = T),
+            RS = quantile(dif_days, 0.75, na.rm = T))
 
 ## 14.3. How many patients in each CACI - only double check 
 data_grd_2 %>% 
@@ -352,7 +417,7 @@ data_grd_2 %>%
 
 #### Split patients with more than one account number - We must used because some matches isn't able to do using "numero de ingreso".
 ## 15. How I can have more than one account per patient I need divide in each one. 
-data_grd_3 <- data_grd_2 %>%
+data_grd_3 <- data_grd_clean %>%
   mutate(numero_de_cuenta = str_trim(numero_de_cuenta)) %>%
   separate(numero_de_cuenta,
            into = c("numero_de_cuenta_1", "numero_de_cuenta_2"),
@@ -377,14 +442,18 @@ data_grd_5 %>%
   group_by(caci_3) %>% 
   summarise(n = n_distinct(documento))
 
+data_grd_5 %>% 
+  group_by(caci_3) %>% 
+  summarise(n = n())
+
 ####################################################################################################################
 #### 16. Sales database matched with the service's attentions and patients identified within of the CACI by admission number ("numero de ingreso")
 
 #### 16.1. Curate and rename sales database 
 data_ordenes_2 <- data_sales %>% 
   clean_names() %>% 
-  mutate(cod_cargo = as.character(cod_cargo)) %>% 
-  mutate(across(starts_with("fecha"), ~ as.Date(., format = "%d/%m/%y")),
+  mutate(cod_cargo = as.character(cod_cargo),
+         across(starts_with("fecha"), as.Date),
          mes_cargue = month(fecha_cargue, label = T),
          ingreso = as.character(ingreso),
          cuenta = as.character(cuenta)) %>% 
@@ -394,17 +463,18 @@ data_ordenes_2 <- data_sales %>%
 
 
 ### 16.2. Join the database GRD with all services that was provided to the patients. 
-data_grd_2 <- data_grd_2 %>% mutate(numero_de_ingreso = as.character(numero_de_ingreso)) %>% 
-  mutate(mes_egreso = month(fecha_de_egreso, label = T, abbr = T),
-         año_egreso = year(fecha_de_egreso),
-         cruce_2 = paste(documento, mes_egreso, año_egreso, sep = ""))
+data_grd_5 <- data_grd_5 %>% mutate(numero_de_ingreso = as.character(numero_de_ingreso)) %>% 
+  mutate(mes_ingreso = month(fecha_ingreso, label = T, abbr = T),
+         año_ingreso = year(fecha_ingreso),
+         cruce_2 = paste(documento, mes_ingreso, año_ingreso, sep = ""))
   
 
-data_ordenes_3 <- left_join(data_ordenes_2, select(data_grd_2, numero_de_ingreso, caci_3),
+data_ordenes_3 <- left_join(data_ordenes_2, select(data_grd_5, numero_de_ingreso, caci_3),
                             by = c("ingreso" = "numero_de_ingreso")) %>% 
   distinct(identificacion, cuenta, fecha_cargue, cargo, valor_cargo_tarifario, total_cuenta,
            costo, transaccion, fecha_registro, ingreso, .keep_all = T) ### Delete duplicated and errors after joining
   
+
 
 ############################################ 17. Review orders without not match #############################################
 ### How many I lost in the match - review. 
@@ -418,7 +488,8 @@ data_revision_ordenes <- left_join(data_grd_5, select(data_ordenes_2, ingreso, c
   select(-c(cargo, cruce)) %>% 
   mutate(mes_egreso = month(fecha_de_egreso, label = T, abbr = T),
          año_egreso = year(fecha_de_egreso),
-         cruce_2 = paste(documento, mes_egreso, año_egreso, sep = ""))
+         cruce_2 = paste(documento, mes_egreso, año_egreso, sep = "")) %>% 
+  filter(fecha_ingreso < "2025-12-31")
 
 ### grd database adjusted for new merge with orders didn't match
 
@@ -450,6 +521,10 @@ data_ordenes_4%>%
   group_by(caci_3) %>%
   summarise(n = n_distinct(identificacion))
 
+### Review if is the same number the patients before and now 
+data_ordenes_4%>% 
+  group_by(caci_3) 
+
 ############################################## 18. Inclusion database costs by planning team ################################################
 ## 18.1. Import database by planning team. 
 data_costo_2025 <- import(here("data", "data_costs", "costo_general_2024.xlsx"), which = "2025")
@@ -460,7 +535,7 @@ data_costo_2025 <- data_costo_2025 %>%
   mutate_at(vars("codigo", "codigo_2"), as.character)
 
 ### 18.3. Join data sales with the data costs to identify CUPS costs
-data_orders <- left_join(data_ordenes_4, select(data_costo_2024, codigo, valor),
+data_orders <- left_join(data_ordenes_4, select(data_costo_2025, codigo, valor),
                                  by = c("cod_cargo_2" = "codigo")) 
  
 data_orders <- data_orders %>% 
@@ -576,7 +651,7 @@ data_ordenes_6 <- left_join(data_orders, select(data_grd_2, edad, sexo,
                                                 departamento_actual, numero_de_ingreso,
                                                 estado_al_alta, dif_days,
                                                 fecha_ingreso, fecha_de_egreso, 
-                                                mes_caci), by = c("ingreso" = "numero_de_ingreso"))
+                                                mes), by = c("ingreso" = "numero_de_ingreso"))
 
 ### 21.2. Delete registers repeated 
 data_ordenes_6 <- data_ordenes_6 %>% 
@@ -585,7 +660,7 @@ data_ordenes_6 <- data_ordenes_6 %>%
            total_cuenta, valor_cargo_tarifario, fecha_factura, transaccion,
            ingreso, .keep_all = T) 
 
-### 21.3. Filter registers whom information are complete regard to admission database and CACI 
+### 21.3. Filter registers of those have information completed regarding admission database and CACI 
 data_ordenes_6.1 <- data_ordenes_6 %>% 
   filter(!is.na(departamento_actual))
 
@@ -598,14 +673,14 @@ data_ordenes_6.2 <- data_ordenes_6 %>%
             departamento_actual,
             estado_al_alta, dif_days,
             fecha_ingreso, fecha_de_egreso, 
-            mes_caci))
+            mes))
 
 ### 21.5. Join data sales with data from admission and CACI using as key id. 
 data_ordenes_6.2 <- left_join(data_ordenes_6.2, select(data_grd_2, edad, sexo, 
                                                      departamento_actual, documento,
                                                      estado_al_alta, dif_days, 
                                                      fecha_ingreso, fecha_de_egreso, 
-                                                     mes_caci), by = c("identificacion" = "documento"))
+                                                     mes), by = c("identificacion" = "documento"))
 
 ### 21.6. Delete registers repeated
 data_ordenes_6.2 <- data_ordenes_6.2 %>% 
@@ -648,7 +723,7 @@ data_mmto_final <- data_mmto_5 %>%
          id, nombres, identificacion, cod_cargo, cargo, fecha_cargue, ingreso, 
          mes_factura, caci_3, cuenta, transaccion, costo_2, valor_cargo_tarifario, profesional_asignado) %>% 
   mutate(profesional_asignado = NA,
-         departamento_cargue_2 = "FARMACIA") 
+         departamento_cargue_2 = "FARMACIA")
 
 
 ## 23.1. Adjustment orders (without medications)  
@@ -657,7 +732,7 @@ data_ordenes_final <- data_orders %>%
   select(nombre_cliente, tipo_cliente, plan, departamento_cargue, fecha_registro, 
          id, nombres, identificacion, cod_cargo, cargo, fecha_cargue, ingreso, 
          mes_factura, caci_3, cuenta, transaccion, valor, valor_cargo_tarifario, profesional_asignado) %>% 
-  mutate(departamento_cargue_2 = "FARMACIA") %>% 
+  mutate(departamento_cargue_2 = "ORDENES") %>% 
   rename("costo_2" = valor) 
 
 ################################################ 24. Final database - work data to build website and report ##################################
@@ -673,10 +748,11 @@ data_costo_total %>%
 ### 24.2. Caught variables with main characteristics about patient of the admission database
 
 data_costo_total_2 <- left_join(data_costo_total, select(data_grd_2, edad, sexo, 
-                                                         departamento_actual, numero_de_ingreso,
+                                                         departamento_actual,
+                                                         numero_de_ingreso,
                                                          estado_al_alta, dif_days, 
                                                          fecha_ingreso, fecha_de_egreso,
-                                                         mes_caci, diagnostico_ingreso_princial, 
+                                                         mes, diagnostico_ingreso_princial, 
                                                          diagnostico_egreso_principal,
                                                          diagnostico_egreso_secundario, procedimiento_qx), 
                                 by = c("ingreso" = "numero_de_ingreso"))
@@ -704,7 +780,7 @@ data_costo_total_2.2 <- data_costo_total_2 %>%
             departamento_actual,
             estado_al_alta, dif_days, 
             fecha_ingreso, fecha_de_egreso,
-            mes_caci, diagnostico_ingreso_princial, 
+            mes, diagnostico_ingreso_princial, 
             diagnostico_egreso_principal,
             diagnostico_egreso_secundario, procedimiento_qx))
 
@@ -713,7 +789,7 @@ data_costo_total_2.2 <- left_join(data_costo_total_2.2, select(data_grd_2, edad,
                                                                departamento_actual, documento,
                                                                estado_al_alta, dif_days, 
                                                                fecha_ingreso, fecha_de_egreso,
-                                                               mes_caci, diagnostico_ingreso_princial, 
+                                                               mes, diagnostico_ingreso_princial, 
                                                                diagnostico_egreso_principal,
                                                                diagnostico_egreso_secundario, procedimiento_qx), 
                                   by = c("identificacion" = "documento"))
@@ -751,8 +827,7 @@ data_costo_total_3 <- data_costo_total_2.1 %>%
 
 data_costo_total_3 <- data_costo_total_3 %>%
   mutate(año = year(fecha_cargue),
-         año = as.factor(año)) %>% 
-  filter(fecha_cargue < "2025-10-01")
+         año = as.factor(año))
 
 
 data_costo_total_3 %>% 
@@ -768,7 +843,7 @@ data_costo_total_3 %>%
 ### Exportar las bases de datos a RDS
 export(data_costo_total_3, "data_costo_total_3_2025_II.rds")
 export(data_costo_total_3, "data_costo_total_3_2025_I.xlsx")
-export(data_grd_2, "data_grd_2_2025_II.rda")
+export(data_grd_5, "data_grd_2_2025_II.rda")
 
 #############################################################################################################
 ### Total costo CACI mes
@@ -790,13 +865,13 @@ tabla_ordenes_costo_total
 
 ### Columna de total para todos los CACI
 data_costo_total_4 <- data_costo_total_3 %>% 
-  filter(año == "2025") %>% 
+  filter(año == "2024") %>% 
   group_by(identificacion, mes_cargue, año, caci_3) %>% 
   summarise(costo = sum(costo_2), 
             venta = sum(venta), .groups = "drop")
 
 data_caci_total <- data_costo_total_3 %>% 
-  filter(año == "2025") %>% 
+  filter(año == "2024") %>% 
   group_by(identificacion, mes_cargue) %>% 
   summarise(Total = sum(costo_2), .groups = "drop")
 
@@ -817,7 +892,7 @@ data_costo_total_5 <- data_costo_total_4 %>%
          pacientes_ACV, mediana_ACV, costo_orden_ACV,
          pacientes_SCA, mediana_SCA, costo_orden_SCA, 
          pacientes_ICC, mediana_ICC, costo_orden_ICC,
-         pacientes_TEP, mediana_TEP, costo_orden_TEP,
+         #pacientes_TEP, mediana_TEP, costo_orden_TEP,
          pacientes_TXC, mediana_TXC, costo_orden_TXC) 
 
 ### Datos requeridos para el informe de gestión en la parte inicial
@@ -842,6 +917,7 @@ data_costo_total_4 %>%
 
 ### Unión con los totales de la tabla
 data_costo_total_5 <- full_join(data_costo_total_5, data_caci_total_2)
+export(data_costo_total_5, )
 
 ### Tabla general de costo medio paciente.
 border_style = officer::fp_border(color="black", width=1)
@@ -1350,3 +1426,14 @@ tabla_cups_6.1 <- tabla_cups_5 %>%
                       ICC = mean(ICC),
                       SCA = mean(SCA),
                       TxC = mean(TxC))) 
+
+
+
+
+data_costo_total_3 %>% 
+  group_by(ingreso, mes_cargue) %>% 
+  summarise(costo = sum(costo_2, na.rm = T),
+            venta = sum(venta, na.rm = T), .groups = "drop") %>% 
+  filter(ingreso == "763366") %>% 
+  flextable()
+
