@@ -4,14 +4,14 @@
     "href": "index.html",
     "title": "Portal de Análisis — DIME Clínica Neurocardiovascular",
     "section": "",
-    "text": "Dashboard estático\n    \n    Grupos Relacionados de Diagnóstico · Costos, ventas y rentabilidad por CACI\n       · Ticket general · Perfil epidemiológico · Histórico 2024 – 2026\n  \n\n  \n    Interactivo\n    \n    Filtros dinámicos por año, mes y CACI · 10 tabs · Costos, ticket, rentabilidad,\n       epidemiología e histórico · Actualizado jun 2026"
+    "text": "Dashboard estático\n    \n    Grupos Relacionados de Diagnóstico · Costos, ventas y rentabilidad por CACI\n       · Ticket general · Perfil epidemiológico · Histórico 2024 – 2026\n  \n\n  \n    Interactivo\n    \n    Filtros dinámicos por año, mes y CACI · 10 tabs · Costos, ticket, rentabilidad,\n       epidemiología e histórico · Actualizado jun 2026\n  \n\n  \n    Dashboard estático\n    \n    Mortalidad ajustada al riesgo (RAMR) · Análisis por servicio y diagnóstico\n       · Tendencias · Indicadores institucionales\n  \n\n  \n    Interactivo\n    \n    Programa de Optimización de Antibióticos · Consumo de DDD · Microbiología\n       · Resistencia bacteriana · Análisis de adherencia"
   },
   {
     "objectID": "index.html#dashboards-interactivos",
     "href": "index.html#dashboards-interactivos",
     "title": "Portal de Análisis — DIME Clínica Neurocardiovascular",
     "section": "Dashboards interactivos",
-    "text": "Dashboards interactivos\nLos dashboards interactivos requieren un servidor R. Están disponibles en shinyapps.io y pueden abrirse en cualquier navegador sin instalar nada:\n\n\n\nDashboard\nDescripción\nEnlace\n\n\n\n\nGRD\nFiltros por año, mes y CACI · 10 tabs · reactivo\nAbrir GRD ↗\n\n\nEstancias (LOS)\nLOS · Larga estancia · Inactivas · 7 tabs\nshinyapps.io (próximamente)\n\n\n\n\nNota: Para publicar los dashboards interactivos, ejecuta rsconnect::deployApp(\"shiny_grd\") desde R."
+    "text": "Dashboards interactivos\nLos dashboards interactivos requieren un servidor R. Están disponibles en shinyapps.io y pueden abrirse en cualquier navegador sin instalar nada:\n\n\n\nDashboard\nDescripción\nEnlace\n\n\n\n\nGRD\nFiltros por año, mes y CACI · 10 tabs · reactivo\nAbrir GRD ↗\n\n\nPROA\nAntibióticos · DDD · Microbiología · Resistencia\nAbrir PROA ↗\n\n\nEstancias (LOS)\nLOS · Larga estancia · Inactivas · 7 tabs\nshinyapps.io (próximamente)\n\n\n\n\nNota: Para publicar los dashboards interactivos, ejecuta rsconnect::deployApp(\"shiny_grd\") desde R."
   },
   {
     "objectID": "index.html#acerca-de-este-portal",

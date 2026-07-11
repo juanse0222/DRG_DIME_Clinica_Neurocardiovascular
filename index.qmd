@@ -60,6 +60,22 @@ subtitle: "Epidemiología · Investigación · Docencia"
        epidemiología e histórico · Actualizado jun 2026</p>
   </a>
 
+  <a class="card-link" href="mortality_dashboard.html"
+     style="background: linear-gradient(135deg, #6C3483, #A569BD);">
+    <span class="badge badge-static">Dashboard estático</span>
+    <h3>💀 Mortalidad Hospitalaria</h3>
+    <p>Mortalidad ajustada al riesgo (RAMR) · Análisis por servicio y diagnóstico
+       · Tendencias · Indicadores institucionales</p>
+  </a>
+
+  <a class="card-link" href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/"
+     style="background: linear-gradient(135deg, #784212, #CA6F1E);" target="_blank">
+    <span class="badge badge-live">Interactivo</span>
+    <h3>💊 PROA · Antibióticos</h3>
+    <p>Programa de Optimización de Antibióticos · Consumo de DDD · Microbiología
+       · Resistencia bacteriana · Análisis de adherencia</p>
+  </a>
+
 </div>
 ```
 
@@ -70,6 +86,7 @@ Los dashboards interactivos requieren un servidor R. Están disponibles en **shi
 | Dashboard | Descripción | Enlace |
 |-----------|-------------|--------|
 | **GRD** | Filtros por año, mes y CACI · 10 tabs · reactivo | [Abrir GRD ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/) |
+| **PROA** | Antibióticos · DDD · Microbiología · Resistencia | [Abrir PROA ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/) |
 | **Estancias (LOS)** | LOS · Larga estancia · Inactivas · 7 tabs | `shinyapps.io` (próximamente) |
 
 > **Nota:** Para publicar los dashboards interactivos, ejecuta `rsconnect::deployApp("shiny_grd")` desde R.

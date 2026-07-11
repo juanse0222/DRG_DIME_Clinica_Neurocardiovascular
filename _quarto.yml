@@ -23,6 +23,11 @@ website:
         href: index.qmd
       - text: "GRD 2026"
         href: test_2.html
+      - text: "Mortalidad"
+        href: mortality_dashboard.html
+      - text: "PROA"
+        href: https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/
+        target: _blank
     right:
       - icon: github
         href: https://github.com/juanse0222/DRG_DIME_Clinica_Neurocardiovascular
