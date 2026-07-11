@@ -6,7 +6,7 @@ format:
     embed-resources: true
     theme: flatly
     include-in-header:
-      text: "<style>nav.slim{display:none!important}</style>"
+      text: "<style>nav.slim .navbar-brand-container,nav.slim .navbar-toggler{display:none!important}</style>"
 ---
 
 ```{r setup}
@@ -19,6 +19,7 @@ pacman::p_load(
 
 Sys.setlocale("LC_TIME", "es_ES.UTF-8")
 theme_set(theme_classic(base_size = 13))
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CACI labels, hierarchy and colors
