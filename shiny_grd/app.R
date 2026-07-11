@@ -76,10 +76,12 @@ ui <- page_navbar(
     layout_columns(
       col_widths = c(5, 7),
       card(
+        full_screen = TRUE,
         card_header(icon("triangle-exclamation"), " Alertas ejecutivas por CACI"),
         reactableOutput("tabla_alertas", height = "280px")
       ),
       card(
+        full_screen = TRUE,
         card_header(icon("users"), " Pacientes por CACI — evolución mensual"),
         plotlyOutput("plot_resumen_pte", height = "280px")
       )
@@ -88,6 +90,7 @@ ui <- page_navbar(
     br(),
 
     card(
+      full_screen = TRUE,
       card_header(icon("percent"), " Rentabilidad (%) por CACI"),
       plotlyOutput("plot_resumen_rent", height = "300px")
     )
@@ -100,6 +103,7 @@ ui <- page_navbar(
     title = tagList(icon("dollar-sign"), " Costos"),
 
     card(
+      full_screen = TRUE,
       card_header(icon("table"), " Costo por paciente según CACI y mes"),
       reactableOutput("tabla_costo_medio")
     ),
@@ -107,6 +111,7 @@ ui <- page_navbar(
     br(),
 
     card(
+      full_screen = TRUE,
       card_header(icon("chart-simple"), " Distribución de costos por paciente y CACI"),
       plotlyOutput("plot_boxplot_caci", height = "500px")
     )
@@ -125,10 +130,12 @@ ui <- page_navbar(
     layout_columns(
       col_widths = c(6, 6),
       card(
+        full_screen = TRUE,
         card_header(icon("chart-line"), " Ticket mediana por CACI"),
         plotlyOutput("plot_ticket_caci", height = "380px")
       ),
       card(
+        full_screen = TRUE,
         card_header(icon("clock-rotate-left"), " Comparativo ticket general por año"),
         plotlyOutput("plot_ticket_historico", height = "380px")
       )
@@ -139,10 +146,12 @@ ui <- page_navbar(
     layout_columns(
       col_widths = c(6, 6),
       card(
+        full_screen = TRUE,
         card_header(icon("table"), " Ticket por CACI y mes"),
         reactableOutput("tabla_ticket_caci")
       ),
       card(
+        full_screen = TRUE,
         card_header(icon("table"), " Ticket histórico por año"),
         reactableOutput("tabla_ticket_historico")
       )
@@ -156,6 +165,7 @@ ui <- page_navbar(
     title = tagList(icon("arrow-trend-up"), " Tendencias"),
 
     card(
+      full_screen = TRUE,
       card_header(icon("person"), " Evolución mensual de pacientes por CACI"),
       plotlyOutput("plot_trend_pacientes", height = "380px")
     ),
@@ -163,6 +173,7 @@ ui <- page_navbar(
     br(),
 
     card(
+      full_screen = TRUE,
       card_header(icon("bar-chart"), " Ventas y costos mensuales por CACI"),
       plotlyOutput("plot_financiero", height = "520px")
     )
@@ -175,6 +186,7 @@ ui <- page_navbar(
     title = tagList(icon("sack-dollar"), " Rentabilidad"),
 
     card(
+      full_screen = TRUE,
       card_header(icon("table"), " Rentabilidad por mes y CACI"),
       reactableOutput("tabla_rentabilidad")
     ),
@@ -184,10 +196,12 @@ ui <- page_navbar(
     layout_columns(
       col_widths = c(6, 6),
       card(
+        full_screen = TRUE,
         card_header(icon("chart-bar"), " Margen bruto mensual por CACI"),
         plotlyOutput("plot_margen", height = "380px")
       ),
       card(
+        full_screen = TRUE,
         card_header(icon("percent"), " Porcentaje de rentabilidad mensual"),
         plotlyOutput("plot_pct_rent", height = "380px")
       )
@@ -201,6 +215,7 @@ ui <- page_navbar(
     title = tagList(icon("clock-rotate-left"), " Histórico"),
 
     card(
+      full_screen = TRUE,
       card_header(icon("table"), " Admisiones y rentabilidad por año y CACI"),
       reactableOutput("tabla_historico")
     ),
@@ -210,10 +225,12 @@ ui <- page_navbar(
     layout_columns(
       col_widths = c(6, 6),
       card(
+        full_screen = TRUE,
         card_header(icon("users"), " Admisiones por año y CACI"),
         plotlyOutput("plot_hist_pte", height = "380px")
       ),
       card(
+        full_screen = TRUE,
         card_header(icon("percent"), " Rentabilidad histórica por CACI"),
         plotlyOutput("plot_hist_rent", height = "380px")
       )
@@ -227,6 +244,7 @@ ui <- page_navbar(
     title = tagList(icon("calendar"), " Anual"),
 
     card(
+      full_screen = TRUE,
       card_header(icon("table"), " Resumen financiero anual por CACI"),
       reactableOutput("tabla_anual")
     ),
@@ -236,10 +254,12 @@ ui <- page_navbar(
     layout_columns(
       col_widths = c(6, 6),
       card(
+        full_screen = TRUE,
         card_header(icon("percent"), " Rentabilidad por año"),
         plotlyOutput("plot_rent_anual", height = "380px")
       ),
       card(
+        full_screen = TRUE,
         card_header(icon("chart-line"), " Costo total mensual por año (tendencia)"),
         plotlyOutput("plot_costo_anual", height = "380px")
       )
@@ -253,6 +273,7 @@ ui <- page_navbar(
     title = tagList(icon("hospital"), " Por unidad"),
 
     card(
+      full_screen = TRUE,
       card_header(icon("chart-bar"), " Costos por unidad de negocio y CACI"),
       plotlyOutput("plot_une", height = "600px")
     )
@@ -265,6 +286,7 @@ ui <- page_navbar(
     title = tagList(icon("stethoscope"), " Epidemiología"),
 
     card(
+      full_screen = TRUE,
       card_header(icon("people-arrows"), " Pirámide poblacional por CACI"),
       plotlyOutput("plot_piramide", height = "520px")
     ),
@@ -274,10 +296,12 @@ ui <- page_navbar(
     layout_columns(
       col_widths = c(5, 7),
       card(
+        full_screen = TRUE,
         card_header(icon("table"), " Resumen epidemiológico"),
         reactableOutput("tabla_epi")
       ),
       card(
+        full_screen = TRUE,
         card_header(icon("bed"), " Días de estancia hospitalaria por CACI"),
         plotlyOutput("plot_estancia", height = "320px")
       )
@@ -291,6 +315,7 @@ ui <- page_navbar(
     title = tagList(icon("table"), " Datos"),
 
     card(
+      full_screen = TRUE,
       card_header(icon("magnifying-glass"), " Explorador de datos — histórico completo"),
       DTOutput("tabla_dt")
     )
@@ -393,7 +418,8 @@ server <- function(input, output, session) {
       group_by(identificacion, caci, mes_cargue) %>%
       summarise(costo = sum(costo, na.rm = TRUE),
                 venta = sum(venta, na.rm = TRUE),
-                .groups = "drop")
+                .groups = "drop") %>%
+      mutate(mes_nombre = mes_factor(mes_cargue))
   })
 
   # ── Resumen mensual por CACI ──────────────────────────────────────────────
@@ -409,7 +435,8 @@ server <- function(input, output, session) {
       ) %>%
       mutate(
         margen     = venta_total - costo_total,
-        margen_pct = safe_pct(margen, venta_total)
+        margen_pct = safe_pct(margen, venta_total),
+        mes_nombre = mes_factor(mes_cargue)
       )
   })
 
@@ -477,7 +504,8 @@ server <- function(input, output, session) {
         ticket_p25     = quantile(costo, 0.25, na.rm = TRUE),
         ticket_p75     = quantile(costo, 0.75, na.rm = TRUE),
         .groups = "drop"
-      )
+      ) %>%
+      mutate(mes_nombre = mes_factor(mes_cargue))
   })
 
   ticket_historico <- reactive({
@@ -494,8 +522,9 @@ server <- function(input, output, session) {
         .groups = "drop"
       ) %>%
       mutate(
-        año_label = factor(as.character(año)),
-        año_mes   = as.Date(paste(año, as.integer(mes_cargue), "01", sep = "-"))
+        año_label  = factor(as.character(año)),
+        año_mes    = as.Date(paste(año, as.integer(mes_cargue), "01", sep = "-")),
+        mes_nombre = mes_factor(mes_cargue)
       )
   })
 
@@ -518,7 +547,8 @@ server <- function(input, output, session) {
         margen     = venta_total - costo_total,
         margen_pct = safe_pct(margen, venta_total),
         año_label  = factor(as.character(año)),
-        año_mes    = as.Date(paste(año, as.integer(mes_cargue), "01", sep = "-"))
+        año_mes    = as.Date(paste(año, as.integer(mes_cargue), "01", sep = "-")),
+        mes_nombre = mes_factor(mes_cargue)
       )
   })
 
@@ -608,10 +638,10 @@ server <- function(input, output, session) {
 
   output$plot_resumen_pte <- renderPlotly({
     df <- resumen_caci() %>% filter(!is.na(caci))
-    p <- ggplot(df, aes(x = mes_cargue, y = pacientes,
+    p <- ggplot(df, aes(x = mes_nombre, y = pacientes,
                         color = caci, group = caci,
                         text  = paste0("<b>", caci, "</b><br>",
-                                       "Mes: ", mes_cargue, "<br>",
+                                       "Mes: ", mes_nombre, "<br>",
                                        "Pacientes: ", pacientes))) +
       geom_line(linewidth = 1.1) + geom_point(size = 2.5) +
       scale_color_manual(values = caci_colors) +
@@ -625,10 +655,10 @@ server <- function(input, output, session) {
 
   output$plot_resumen_rent <- renderPlotly({
     df <- resumen_caci() %>% filter(!is.na(caci), venta_total > 0)
-    p <- ggplot(df, aes(x = mes_cargue, y = margen_pct,
+    p <- ggplot(df, aes(x = mes_nombre, y = margen_pct,
                         color = caci, group = caci,
                         text  = paste0("<b>", caci, "</b><br>",
-                                       "Mes: ", mes_cargue, "<br>",
+                                       "Mes: ", mes_nombre, "<br>",
                                        "Rentabilidad: ", pct_fmt(margen_pct)))) +
       geom_line(linewidth = 1.1) + geom_point(size = 2.5) +
       geom_hline(yintercept = 50, linetype = "dashed", color = "grey55") +
@@ -650,7 +680,7 @@ server <- function(input, output, session) {
   # ══════════════════════════════════════════════════════════════════════════
   output$tabla_costo_medio <- renderReactable({
     tabla <- pte_mes() %>%
-      group_by(Mes = mes_cargue, CACI = caci) %>%
+      group_by(Mes = mes_nombre, CACI = caci) %>%
       summarise(
         Pacientes       = n_distinct(identificacion),
         `Costo mediano` = median(costo, na.rm = TRUE),
@@ -659,7 +689,6 @@ server <- function(input, output, session) {
       )
     reactable(
       tabla,
-      groupBy       = "Mes",
       searchable    = TRUE,
       pagination    = FALSE,
       striped       = TRUE,
@@ -667,23 +696,19 @@ server <- function(input, output, session) {
       bordered      = TRUE,
       defaultColDef = colDef(align = "center", minWidth = 90),
       columns = list(
-        Mes  = colDef(minWidth = 90, sticky = "left", aggregate = "unique"),
+        Mes  = colDef(minWidth = 90, sticky = "left"),
         CACI = colDef(minWidth = 90),
         Pacientes = colDef(
-          align      = "right",
-          aggregate  = "sum",
-          aggregated = function(v) format(sum(v), big.mark = ".")
+          align  = "right",
+          format = colFormat(separators = TRUE)
         ),
         `Costo mediano` = colDef(
-          align      = "right", minWidth = 150,
-          cell       = function(v) cop(v),
-          aggregated = function(v) cop(median(v, na.rm = TRUE))
+          align = "right", minWidth = 150,
+          cell  = function(v) cop(v)
         ),
         `Costo total` = colDef(
-          align      = "right", minWidth = 150,
-          aggregate  = "sum",
-          cell       = function(v) cop(v),
-          aggregated = function(v) cop(sum(v, na.rm = TRUE))
+          align = "right", minWidth = 150,
+          cell  = function(v) cop(v)
         )
       ),
       theme = reactableTheme(
@@ -694,8 +719,8 @@ server <- function(input, output, session) {
 
   output$plot_boxplot_caci <- renderPlotly({
     df <- pte_mes() %>% filter(!is.na(caci), costo > 0)
-    p <- ggplot(df, aes(x = mes_cargue, y = costo, fill = caci,
-                        text = paste0("CACI: ", caci, "<br>Mes: ", mes_cargue,
+    p <- ggplot(df, aes(x = mes_nombre, y = costo, fill = caci,
+                        text = paste0("CACI: ", caci, "<br>Mes: ", mes_nombre,
                                       "<br>Costo: ", cop(costo)))) +
       geom_boxplot(outlier.size = 0.7, outlier.alpha = 0.4) +
       facet_wrap(~ caci, scales = "free_y") +
@@ -747,9 +772,9 @@ server <- function(input, output, session) {
 
   output$plot_ticket_caci <- renderPlotly({
     df <- ticket_caci() %>% filter(!is.na(caci))
-    p <- ggplot(df, aes(x = mes_cargue, y = ticket_mediana,
+    p <- ggplot(df, aes(x = mes_nombre, y = ticket_mediana,
                         color = caci, group = caci,
-                        text = paste0("CACI: ", caci, "<br>Mes: ", mes_cargue,
+                        text = paste0("CACI: ", caci, "<br>Mes: ", mes_nombre,
                                       "<br>Mediana: ", cop(ticket_mediana),
                                       "<br>P25: ", cop(ticket_p25),
                                       "<br>P75: ", cop(ticket_p75),
@@ -802,7 +827,7 @@ server <- function(input, output, session) {
       filter(!is.na(caci)) %>%
       arrange(mes_cargue, caci) %>%
       transmute(
-        Mes              = mes_cargue,
+        Mes              = mes_nombre,
         CACI             = caci,
         Pacientes        = pacientes,
         `Ticket P25`     = cop(ticket_p25),
@@ -837,7 +862,7 @@ server <- function(input, output, session) {
       arrange(año, mes_cargue) %>%
       transmute(
         Año              = as.character(año),
-        Mes              = mes_cargue,
+        Mes              = mes_nombre,
         Pacientes        = pacientes,
         `Ticket P25`     = cop(ticket_p25),
         `Ticket mediana` = cop(ticket_mediana),
@@ -881,7 +906,7 @@ server <- function(input, output, session) {
   # ══════════════════════════════════════════════════════════════════════════
   output$plot_trend_pacientes <- renderPlotly({
     df <- resumen_caci() %>% filter(!is.na(caci))
-    p <- ggplot(df, aes(x = mes_cargue, y = pacientes,
+    p <- ggplot(df, aes(x = mes_nombre, y = pacientes,
                         color = caci, group = caci)) +
       geom_line(linewidth = 1.2) + geom_point(size = 3) +
       scale_color_manual(values = caci_colors) +
@@ -896,7 +921,7 @@ server <- function(input, output, session) {
 
   output$plot_financiero <- renderPlotly({
     fin_long <- resumen_caci() %>%
-      select(CACI = caci, Mes = mes_cargue, costo_total, venta_total) %>%
+      select(CACI = caci, Mes = mes_nombre, costo_total, venta_total) %>%
       pivot_longer(c(costo_total, venta_total),
                    names_to  = "tipo", values_to = "valor") %>%
       mutate(tipo = recode(tipo, costo_total = "Costo", venta_total = "Venta"))
@@ -923,11 +948,10 @@ server <- function(input, output, session) {
   output$tabla_rentabilidad <- renderReactable({
     tabla <- resumen_caci() %>%
       filter(!is.na(caci)) %>%
-      select(Mes = mes_cargue, CACI = caci,
+      select(Mes = mes_nombre, CACI = caci,
              costo_total, venta_total, margen, margen_pct)
     reactable(
       tabla,
-      groupBy       = "Mes",
       searchable    = TRUE,
       pagination    = FALSE,
       striped       = TRUE,
@@ -935,31 +959,24 @@ server <- function(input, output, session) {
       bordered      = TRUE,
       defaultColDef = colDef(align = "center", minWidth = 100),
       columns = list(
-        Mes  = colDef(minWidth = 90, sticky = "left", aggregate = "unique"),
+        Mes  = colDef(minWidth = 90, sticky = "left"),
         CACI = colDef(minWidth = 80),
         costo_total = colDef(
-          name       = "Costo total", minWidth = 150, align = "right",
-          aggregate  = "sum",
-          cell       = function(v) cop(v),
-          aggregated = function(v) cop(sum(v, na.rm = TRUE))
+          name = "Costo total", minWidth = 150, align = "right",
+          cell = function(v) cop(v)
         ),
         venta_total = colDef(
-          name       = "Ventas", minWidth = 150, align = "right",
-          aggregate  = "sum",
-          cell       = function(v) cop(v),
-          aggregated = function(v) cop(sum(v, na.rm = TRUE))
+          name = "Ventas", minWidth = 150, align = "right",
+          cell = function(v) cop(v)
         ),
         margen = colDef(
-          name       = "Margen bruto", minWidth = 150, align = "right",
-          aggregate  = "sum",
-          cell       = function(v) cop(v),
-          aggregated = function(v) cop(sum(v, na.rm = TRUE))
+          name = "Margen bruto", minWidth = 150, align = "right",
+          cell = function(v) cop(v)
         ),
         margen_pct = colDef(
-          name       = "Rentabilidad (%)", minWidth = 140, align = "center",
-          format     = colFormat(suffix = "%", digits = 1),
-          aggregated = function(v) pct_fmt(mean(v, na.rm = TRUE)),
-          style = function(value) {
+          name   = "Rentabilidad (%)", minWidth = 140, align = "center",
+          format = colFormat(suffix = "%", digits = 1),
+          style  = function(value) {
             list(color = if (!is.na(value) && value >= 50) "#59A14F"
                         else if (!is.na(value) && value >= 30) "#F28E2B"
                         else "#E15759",
@@ -975,8 +992,8 @@ server <- function(input, output, session) {
 
   output$plot_margen <- renderPlotly({
     p <- ggplot(resumen_caci() %>% filter(!is.na(caci)),
-                aes(x = mes_cargue, y = margen, fill = caci,
-                    text = paste0("CACI: ", caci, "<br>Mes: ", mes_cargue,
+                aes(x = mes_nombre, y = margen, fill = caci,
+                    text = paste0("CACI: ", caci, "<br>Mes: ", mes_nombre,
                                   "<br>Margen: ", cop(margen)))) +
       geom_col(position = "dodge", color = "black", linewidth = 0.2) +
       geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
@@ -991,8 +1008,8 @@ server <- function(input, output, session) {
 
   output$plot_pct_rent <- renderPlotly({
     p <- ggplot(resumen_caci() %>% filter(!is.na(caci), venta_total > 0),
-                aes(x = mes_cargue, y = margen_pct, color = caci, group = caci,
-                    text = paste0("CACI: ", caci, "<br>Mes: ", mes_cargue,
+                aes(x = mes_nombre, y = margen_pct, color = caci, group = caci,
+                    text = paste0("CACI: ", caci, "<br>Mes: ", mes_nombre,
                                   "<br>Rentabilidad: ", pct_fmt(margen_pct)))) +
       geom_line(linewidth = 1.1) + geom_point(size = 3) +
       geom_hline(yintercept = 50, linetype = "dashed", color = "grey50") +
@@ -1015,7 +1032,6 @@ server <- function(input, output, session) {
              costo_total, venta_total, margen, margen_pct)
     reactable(
       tabla,
-      groupBy       = "Año",
       searchable    = FALSE,
       pagination    = FALSE,
       striped       = TRUE,
@@ -1023,36 +1039,28 @@ server <- function(input, output, session) {
       bordered      = TRUE,
       defaultColDef = colDef(align = "center", minWidth = 100),
       columns = list(
-        Año  = colDef(minWidth = 70, sticky = "left", aggregate = "unique"),
+        Año  = colDef(minWidth = 70, sticky = "left"),
         CACI = colDef(minWidth = 80),
         Pacientes = colDef(
-          align      = "right",
-          aggregate  = "sum",
-          aggregated = function(v) format(sum(v), big.mark = ".")
+          align  = "right",
+          format = colFormat(separators = TRUE)
         ),
         costo_total = colDef(
-          name       = "Costo total", minWidth = 150, align = "right",
-          aggregate  = "sum",
-          cell       = function(v) cop(v),
-          aggregated = function(v) cop(sum(v, na.rm = TRUE))
+          name = "Costo total", minWidth = 150, align = "right",
+          cell = function(v) cop(v)
         ),
         venta_total = colDef(
-          name       = "Ventas", minWidth = 150, align = "right",
-          aggregate  = "sum",
-          cell       = function(v) cop(v),
-          aggregated = function(v) cop(sum(v, na.rm = TRUE))
+          name = "Ventas", minWidth = 150, align = "right",
+          cell = function(v) cop(v)
         ),
         margen = colDef(
-          name       = "Margen bruto", minWidth = 150, align = "right",
-          aggregate  = "sum",
-          cell       = function(v) cop(v),
-          aggregated = function(v) cop(sum(v, na.rm = TRUE))
+          name = "Margen bruto", minWidth = 150, align = "right",
+          cell = function(v) cop(v)
         ),
         margen_pct = colDef(
-          name       = "Rentabilidad (%)", minWidth = 140, align = "center",
-          format     = colFormat(suffix = "%", digits = 1),
-          aggregated = function(v) pct_fmt(mean(v, na.rm = TRUE)),
-          style = function(value) {
+          name   = "Rentabilidad (%)", minWidth = 140, align = "center",
+          format = colFormat(suffix = "%", digits = 1),
+          style  = function(value) {
             list(color = if (!is.na(value) && value >= 50) "#59A14F"
                         else if (!is.na(value) && value >= 30) "#F28E2B"
                         else "#E15759",
@@ -1194,9 +1202,10 @@ server <- function(input, output, session) {
   # ══════════════════════════════════════════════════════════════════════════
   output$plot_une <- renderPlotly({
     une_caci <- data_costo_filt() %>%
-      mutate(Unidad = classify_une(departamento_cargue, departamento_cargue_2)) %>%
+      mutate(Unidad     = classify_une(departamento_cargue, departamento_cargue_2),
+             mes_nombre = mes_factor(mes_cargue)) %>%
       filter(!is.na(caci)) %>%
-      group_by(Mes = mes_cargue, CACI = caci, Unidad) %>%
+      group_by(Mes = mes_nombre, CACI = caci, Unidad) %>%
       summarise(Costo = sum(costo, na.rm = TRUE), .groups = "drop")
 
     p <- ggplot(une_caci, aes(x = Mes, y = Costo, fill = Unidad,
@@ -1315,7 +1324,7 @@ server <- function(input, output, session) {
     tabla <- data_costo_hist() %>%
       filter(!is.na(caci)) %>%
       group_by(Año      = año,
-               Mes      = mes_cargue,
+               Mes      = mes_factor(mes_cargue),
                CACI     = caci,
                Paciente = identificacion,
                Tipo     = departamento_cargue_2) %>%

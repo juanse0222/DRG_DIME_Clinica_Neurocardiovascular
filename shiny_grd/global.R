@@ -51,6 +51,10 @@ year_colors <- c(
   "2026" = "#2980B9"
 )
 
+# Abreviaturas de meses en español y helper para convertir mes entero → factor
+meses_abr <- c("Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic")
+mes_factor <- function(m) factor(meses_abr[as.integer(m)], levels = meses_abr)
+
 # ── Función de normalización CACI ─────────────────────────────────────────────
 # Convierte cualquier variante del código crudo al label limpio como factor
 # ordenado por jerarquía clínica. Usada tanto en costos como en GRD.
