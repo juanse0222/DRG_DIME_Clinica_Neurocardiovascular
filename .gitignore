@@ -17,12 +17,16 @@
 data/
 *.csv
 *.rds
+*.rda
 *.rdata
 *.xlsx
+*.xls
+censo_junio_2026.xls
 
 # Quarto / build output
 _site/
 _render/
+_freeze/
 #docs/
 
 # OS files
@@ -36,3 +40,6 @@ Thumbs.db
 # others
 quarto/
 
+
+/.quarto/
+**/*.quarto_ipynb

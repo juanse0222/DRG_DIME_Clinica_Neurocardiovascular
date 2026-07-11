@@ -1,0 +1,92 @@
+/* ── GRD Dashboard · DIME Clínica Neurocardiovascular ──────────────────────── */
+
+/* Navbar */
+.navbar {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.navbar-brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+}
+
+/* Sidebar */
+.bslib-sidebar-layout > .sidebar {
+  border-right: 1px solid #dee2e6;
+}
+
+.sidebar .shiny-input-container label {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #495057;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+
+.sidebar hr {
+  border-color: #ced4da;
+}
+
+/* Cards */
+.card {
+  border: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10);
+  border-radius: 8px;
+}
+
+.card-header {
+  background: #f8f9fa;
+  border-bottom: 2px solid #2C3E50;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #2C3E50;
+  padding: 10px 16px;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+/* Value boxes */
+.bslib-value-box {
+  border-radius: 10px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+}
+
+.bslib-value-box .value-box-value {
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+}
+
+.bslib-value-box .value-box-title {
+  font-size: 0.80rem !important;
+  opacity: 0.90;
+}
+
+/* Reactable tables */
+.rt-table {
+  font-size: 0.85rem;
+}
+
+.rt-th {
+  font-size: 0.82rem !important;
+}
+
+/* Action button */
+.btn-primary {
+  background-color: #2C3E50 !important;
+  border-color:     #2C3E50 !important;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background-color: #1a252f !important;
+  border-color:     #1a252f !important;
+}
+
+/* Footer strip */
+footer, .shiny-footer {
+  font-size: 0.78rem;
+  color: #6c757d;
+  text-align: center;
+  padding: 8px 0;
+}

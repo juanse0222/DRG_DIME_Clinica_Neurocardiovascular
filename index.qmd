@@ -1,0 +1,87 @@
+---
+title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
+subtitle: "Epidemiología · Investigación · Docencia"
+---
+
+```{=html}
+<style>
+.card-link {
+  display: block;
+  padding: 20px 24px;
+  border-radius: 10px;
+  color: white;
+  text-decoration: none;
+  margin-bottom: 16px;
+  box-shadow: 0 3px 12px rgba(0,0,0,.15);
+  transition: transform .15s, box-shadow .15s;
+}
+.card-link:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.22);
+  color: white;
+  text-decoration: none;
+}
+.card-link h3 { margin: 0 0 6px; font-size: 1.15rem; font-weight: 700; }
+.card-link p  { margin: 0; font-size: .88rem; opacity: .92; }
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: .72rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.badge-new    { background: #59A14F; color: white; }
+.badge-live   { background: #4E79A7; color: white; }
+.badge-static { background: #F28E2B; color: white; }
+</style>
+
+<div class="card-grid">
+
+  <a class="card-link" href="test_2.html"
+     style="background: linear-gradient(135deg, #2C3E50, #4E79A7);">
+    <span class="badge badge-static">Dashboard estático</span>
+    <h3>📊 Análisis GRD · 2026</h3>
+    <p>Grupos Relacionados de Diagnóstico · Costos, ventas y rentabilidad por CACI
+       · Ticket general · Perfil epidemiológico · Histórico 2024 – 2026</p>
+  </a>
+
+</div>
+```
+
+## Dashboards interactivos
+
+Los dashboards interactivos requieren un servidor R. Están disponibles en **shinyapps.io** y pueden abrirse en cualquier navegador sin instalar nada:
+
+| Dashboard | Descripción | Enlace |
+|-----------|-------------|--------|
+| **GRD** | Filtros por año, mes y CACI · 10 tabs · reactivo | `shinyapps.io` (próximamente) |
+| **Estancias (LOS)** | LOS · Larga estancia · Inactivas · 7 tabs | `shinyapps.io` (próximamente) |
+
+> **Nota:** Para publicar los dashboards interactivos, ejecuta `rsconnect::deployApp("shiny_grd")` desde R.
+
+## Acerca de este portal
+
+Este sitio es generado automáticamente desde el repositorio privado
+[`DRG_DIME_Clinica_Neurocardiovascular`](https://github.com/juanse0222/DRG_DIME_Clinica_Neurocardiovascular)
+en GitHub, usando **Quarto** y **R**.
+
+**Fuentes de datos:**
+
+- Ingresos y egresos (base de datos institucional)
+- Detalle de ventas (CUPS · Cargos · Farmacia)
+- Tablas de costos (Planeación)
+
+**Clasificación CACI (jerarquía clínica):**
+ICC → ACV → SCA → TEP → TxC → Otros CV
+
+---
+
+*Informe generado el `r format(Sys.Date(), "%d de %B de %Y")`
+por Juan Sebastián Hurtado Zapata · Líder de Epidemiología, Docencia e Investigación*

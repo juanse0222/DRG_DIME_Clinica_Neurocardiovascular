@@ -1,0 +1,45 @@
+project:
+  type: website
+  output-dir: docs
+  render:
+    - index.qmd
+    - test_2.qmd     # GRD dashboard → docs/test_2.html
+
+website:
+  title: "DIME · Epidemiología"
+  description: "Análisis de datos clínicos y financieros — DIME Clínica Neurocardiovascular"
+  favicon: images/DIME_logo.png
+  repo-url: https://github.com/juanse0222/DRG_DIME_Clinica_Neurocardiovascular
+  page-navigation: true
+
+  navbar:
+    background: "#2C3E50"
+    foreground: white
+    logo: images/DIME_logo.png
+    logo-alt: "DIME"
+    title: false
+    left:
+      - text: "Inicio"
+        href: index.qmd
+      - text: "GRD 2026"
+        href: test_2.html
+    right:
+      - icon: github
+        href: https://github.com/juanse0222/DRG_DIME_Clinica_Neurocardiovascular
+
+  page-footer:
+    left: "© 2026 DIME Clínica Neurocardiovascular · Epidemiología"
+    right:
+      - text: "Juan Sebastián Hurtado Zapata"
+
+format:
+  html:
+    theme: flatly
+    toc: true
+    lang: es
+
+execute:
+  freeze: auto
+  echo: false
+  warning: false
+  message: false

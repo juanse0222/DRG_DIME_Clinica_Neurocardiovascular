@@ -1,0 +1,23 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Portal de Análisis — DIME Clínica Neurocardiovascular",
+    "section": "",
+    "text": "Dashboard estático\n    \n    Grupos Relacionados de Diagnóstico · Costos, ventas y rentabilidad por CACI\n       · Ticket general · Perfil epidemiológico · Histórico 2024 – 2026"
+  },
+  {
+    "objectID": "index.html#dashboards-interactivos",
+    "href": "index.html#dashboards-interactivos",
+    "title": "Portal de Análisis — DIME Clínica Neurocardiovascular",
+    "section": "Dashboards interactivos",
+    "text": "Dashboards interactivos\nLos dashboards interactivos requieren un servidor R. Están disponibles en shinyapps.io y pueden abrirse en cualquier navegador sin instalar nada:\n\n\n\n\n\n\n\n\nDashboard\nDescripción\nEnlace\n\n\n\n\nGRD\nFiltros por año, mes y CACI · 10 tabs · reactivo\nshinyapps.io (próximamente)\n\n\nEstancias (LOS)\nLOS · Larga estancia · Inactivas · 7 tabs\nshinyapps.io (próximamente)\n\n\n\n\nNota: Para publicar los dashboards interactivos, ejecuta rsconnect::deployApp(\"shiny_grd\") desde R."
+  },
+  {
+    "objectID": "index.html#acerca-de-este-portal",
+    "href": "index.html#acerca-de-este-portal",
+    "title": "Portal de Análisis — DIME Clínica Neurocardiovascular",
+    "section": "Acerca de este portal",
+    "text": "Acerca de este portal\nEste sitio es generado automáticamente desde el repositorio privado DRG_DIME_Clinica_Neurocardiovascular en GitHub, usando Quarto y R.\nFuentes de datos:\n\nIngresos y egresos (base de datos institucional)\nDetalle de ventas (CUPS · Cargos · Farmacia)\nTablas de costos (Planeación)\n\nClasificación CACI (jerarquía clínica): ICC → ACV → SCA → TEP → TxC → Otros CV\n\nInforme generado el r format(Sys.Date(), \"%d de %B de %Y\") por Juan Sebastián Hurtado Zapata · Líder de Epidemiología, Docencia e Investigación"
+  }
+]
