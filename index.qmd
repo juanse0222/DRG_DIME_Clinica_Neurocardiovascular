@@ -52,6 +52,14 @@ subtitle: "Epidemiología · Investigación · Docencia"
        · Ticket general · Perfil epidemiológico · Histórico 2024 – 2026</p>
   </a>
 
+  <a class="card-link" href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/"
+     style="background: linear-gradient(135deg, #1a6b3a, #59A14F);" target="_blank">
+    <span class="badge badge-live">Interactivo</span>
+    <h3>⚡ GRD Shiny · Reactivo</h3>
+    <p>Filtros dinámicos por año, mes y CACI · 10 tabs · Costos, ticket, rentabilidad,
+       epidemiología e histórico · Actualizado jun 2026</p>
+  </a>
+
 </div>
 ```
 
@@ -61,7 +69,7 @@ Los dashboards interactivos requieren un servidor R. Están disponibles en **shi
 
 | Dashboard | Descripción | Enlace |
 |-----------|-------------|--------|
-| **GRD** | Filtros por año, mes y CACI · 10 tabs · reactivo | `shinyapps.io` (próximamente) |
+| **GRD** | Filtros por año, mes y CACI · 10 tabs · reactivo | [Abrir GRD ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/) |
 | **Estancias (LOS)** | LOS · Larga estancia · Inactivas · 7 tabs | `shinyapps.io` (próximamente) |
 
 > **Nota:** Para publicar los dashboards interactivos, ejecuta `rsconnect::deployApp("shiny_grd")` desde R.
