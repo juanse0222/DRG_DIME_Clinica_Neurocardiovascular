@@ -4,12 +4,9 @@ author: "Juan Sebastian Hurtado Zapata - Líder de Epidemiología, Docencia e In
 format:
   dashboard:
     embed-resources: true
-    logo: images/DIME_logo.png
     theme: flatly
-    #orientation: rows
-    nav-buttons:
-      - icon: github
-        href: https://github.com/juanse0222/DRG_DIME_Clinica_Neurocardiovascular.git
+    include-in-header:
+      text: "<style>.quarto-dashboard-header{display:none!important}</style>"
 ---
 
 ```{r setup}

@@ -201,7 +201,7 @@ prep_costo <- function(df) {
         suppressWarnings(as.numeric(ano)),
         year(fecha_cargue)
       )),
-      mes_cargue = as.integer(mes_cargue),
+      mes_cargue = as.integer(month(fecha_cargue)),
       caci   = recode_caci(caci)
     ) %>%
     filter(año >= 2024L, !is.na(año))
