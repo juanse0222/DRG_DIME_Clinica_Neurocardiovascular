@@ -4,8 +4,7 @@
 ################################################################################
 
 library(shiny)
-library(bslib)
-library(bsicons)
+library(shinydashboard)
 library(tidyverse)
 library(lubridate)
 library(scales)
@@ -247,18 +246,6 @@ classify_une <- function(dept, dept2 = NA_character_) {
     TRUE                                                                       ~ "Otro"
   )
 }
-
-# ── Tema bslib DIME ───────────────────────────────────────────────────────────
-dime_theme <- bs_theme(
-  version    = 5,
-  bootswatch = "flatly",
-  primary    = "#2C3E50",
-  secondary  = "#4E79A7",
-  success    = "#59A14F",
-  warning    = "#F28E2B",
-  danger     = "#E15759",
-  info       = "#76B7B2"
-)
 
 message("[GRD-App] global.R listo. Años disponibles: ",
         paste(sort(year_choices), collapse = ", "),

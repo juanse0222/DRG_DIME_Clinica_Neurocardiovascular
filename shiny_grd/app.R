@@ -9,324 +9,263 @@ source("global.R")
 # ══════════════════════════════════════════════════════════════════════════════
 # UI
 # ══════════════════════════════════════════════════════════════════════════════
-ui <- page_navbar(
-  title = tags$span(
-    tags$img(src = "logo.png", height = "34px",
-             style = "margin-right:10px; vertical-align:middle;"),
-    "Análisis GRD"
-  ),
-  theme    = dime_theme,
-  bg       = "#2C3E50",
-  fillable = FALSE,
-  lang     = "es",
-  header   = tags$head(tags$link(rel = "stylesheet", href = "styles.css")),
+ui <- dashboardPage(
+  skin = "blue",
 
-  # ── Sidebar compartido ─────────────────────────────────────────────────────
-  sidebar = sidebar(
-    title = tags$strong("Filtros"),
-    width = 265,
-    bg    = "#f4f6f8",
-    open  = "desktop",
-
-    selectInput("yr", "Año de análisis",
-                choices  = year_choices,
-                selected = max(year_choices)),
-
-    selectInput("yr_desde", "Histórico desde",
-                choices  = rev(year_choices),
-                selected = min(year_choices)),
-
-    selectInput("mon", "Mes",
-                choices  = mes_choices,
-                selected = "0"),
-
-    hr(style = "margin: 8px 0;"),
-
-    checkboxGroupInput("caci_sel", "CACI incluidos",
-                       choices  = caci_choices,
-                       selected = caci_choices),
-
-    hr(style = "margin: 8px 0;"),
-
-    actionButton("btn_update", "Actualizar",
-                 icon  = icon("rotate"),
-                 class = "btn-primary w-100"),
-
-    br(),
-
-    tags$small(
-      tags$em(
-        "Datos hasta: ", tags$strong(textOutput("ultimo_mes", inline = TRUE)), br(),
-        "Últ. carga: ", textOutput("last_update", inline = TRUE)
-      ),
-      style = "color:#6c757d;"
-    )
-  ),
-
-  # ════════════════════════════════════════════════════════════════════════════
-  # Tab 1 · Resumen
-  # ════════════════════════════════════════════════════════════════════════════
-  nav_panel(
-    title = tagList(icon("chart-line"), " Resumen"),
-
-    uiOutput("kpi_boxes"),
-
-    br(),
-
-    layout_columns(
-      col_widths = c(5, 7),
-      card(
-        full_screen = TRUE,
-        card_header(icon("triangle-exclamation"), " Alertas ejecutivas por CACI"),
-        reactableOutput("tabla_alertas", height = "280px")
-      ),
-      card(
-        full_screen = TRUE,
-        card_header(icon("users"), " Pacientes por CACI — evolución mensual"),
-        plotlyOutput("plot_resumen_pte", height = "280px")
-      )
+  dashboardHeader(
+    title = tags$span(
+      tags$img(src = "logo.png", height = "32px",
+               style = "margin-right:8px; vertical-align:middle;"),
+      "Análisis GRD"
     ),
-
-    br(),
-
-    card(
-      full_screen = TRUE,
-      card_header(icon("percent"), " Rentabilidad (%) por CACI"),
-      plotlyOutput("plot_resumen_rent", height = "300px")
-    )
+    titleWidth = 260
   ),
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # Tab 2 · Costos
-  # ════════════════════════════════════════════════════════════════════════════
-  nav_panel(
-    title = tagList(icon("dollar-sign"), " Costos"),
-
-    card(
-      full_screen = TRUE,
-      card_header(icon("table"), " Costo por paciente según CACI y mes"),
-      reactableOutput("tabla_costo_medio")
+  dashboardSidebar(
+    width = 240,
+    sidebarMenu(
+      id = "tabs",
+      menuItem("Resumen",       tabName = "resumen",       icon = icon("chart-line")),
+      menuItem("Costos",        tabName = "costos",        icon = icon("dollar-sign")),
+      menuItem("Ticket",        tabName = "ticket",        icon = icon("receipt")),
+      menuItem("Tendencias",    tabName = "tendencias",    icon = icon("arrow-trend-up")),
+      menuItem("Rentabilidad",  tabName = "rentabilidad",  icon = icon("sack-dollar")),
+      menuItem("Histórico",     tabName = "historico",     icon = icon("clock-rotate-left")),
+      menuItem("Anual",         tabName = "anual",         icon = icon("calendar")),
+      menuItem("Por unidad",    tabName = "por_unidad",    icon = icon("hospital")),
+      menuItem("Epidemiología", tabName = "epidemiologia", icon = icon("stethoscope")),
+      menuItem("Datos",         tabName = "datos",         icon = icon("table"))
     ),
-
-    br(),
-
-    card(
-      full_screen = TRUE,
-      card_header(icon("chart-simple"), " Distribución de costos por paciente y CACI"),
-      plotlyOutput("plot_boxplot_caci", height = "500px")
-    )
-  ),
-
-  # ════════════════════════════════════════════════════════════════════════════
-  # Tab 3 · Ticket General
-  # ════════════════════════════════════════════════════════════════════════════
-  nav_panel(
-    title = tagList(icon("receipt"), " Ticket"),
-
-    uiOutput("ticket_kpi_boxes"),
-
-    br(),
-
-    layout_columns(
-      col_widths = c(6, 6),
-      card(
-        full_screen = TRUE,
-        card_header(icon("chart-line"), " Ticket mediana por CACI"),
-        plotlyOutput("plot_ticket_caci", height = "380px")
-      ),
-      card(
-        full_screen = TRUE,
-        card_header(icon("clock-rotate-left"), " Comparativo ticket general por año"),
-        plotlyOutput("plot_ticket_historico", height = "380px")
-      )
-    ),
-
-    br(),
-
-    layout_columns(
-      col_widths = c(6, 6),
-      card(
-        full_screen = TRUE,
-        card_header(icon("table"), " Ticket por CACI y mes"),
-        reactableOutput("tabla_ticket_caci")
-      ),
-      card(
-        full_screen = TRUE,
-        card_header(icon("table"), " Ticket histórico por año"),
-        reactableOutput("tabla_ticket_historico")
+    tags$hr(style = "border-color:rgba(255,255,255,.2); margin:8px 0;"),
+    tags$div(
+      style = "padding: 0 14px;",
+      selectInput("yr", "Año de análisis",
+                  choices = year_choices, selected = max(year_choices)),
+      selectInput("yr_desde", "Histórico desde",
+                  choices = rev(year_choices), selected = min(year_choices)),
+      selectInput("mon", "Mes",
+                  choices = mes_choices, selected = "0"),
+      tags$hr(style = "border-color:rgba(255,255,255,.2); margin:6px 0;"),
+      tags$label("CACI incluidos",
+                 style = "color:rgba(255,255,255,.8); font-weight:600; font-size:.85rem;"),
+      checkboxGroupInput("caci_sel", NULL,
+                         choices = caci_choices, selected = caci_choices),
+      tags$hr(style = "border-color:rgba(255,255,255,.2); margin:6px 0;"),
+      actionButton("btn_update", "Actualizar",
+                   icon = icon("rotate"), class = "btn-primary btn-block"),
+      br(),
+      tags$small(
+        tags$em(
+          "Datos hasta: ", tags$strong(textOutput("ultimo_mes", inline = TRUE)), br(),
+          "Últ. carga: ", textOutput("last_update", inline = TRUE)
+        ),
+        style = "color:rgba(255,255,255,.6);"
       )
     )
   ),
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # Tab 4 · Tendencias
-  # ════════════════════════════════════════════════════════════════════════════
-  nav_panel(
-    title = tagList(icon("arrow-trend-up"), " Tendencias"),
+  dashboardBody(
+    tags$head(tags$link(rel = "stylesheet", href = "styles.css")),
+    tabItems(
 
-    card(
-      full_screen = TRUE,
-      card_header(icon("person"), " Evolución mensual de pacientes por CACI"),
-      plotlyOutput("plot_trend_pacientes", height = "380px")
-    ),
-
-    br(),
-
-    card(
-      full_screen = TRUE,
-      card_header(icon("bar-chart"), " Ventas y costos mensuales por CACI"),
-      plotlyOutput("plot_financiero", height = "520px")
-    )
-  ),
-
-  # ════════════════════════════════════════════════════════════════════════════
-  # Tab 5 · Rentabilidad
-  # ════════════════════════════════════════════════════════════════════════════
-  nav_panel(
-    title = tagList(icon("sack-dollar"), " Rentabilidad"),
-
-    card(
-      full_screen = TRUE,
-      card_header(icon("table"), " Rentabilidad por mes y CACI"),
-      reactableOutput("tabla_rentabilidad")
-    ),
-
-    br(),
-
-    layout_columns(
-      col_widths = c(6, 6),
-      card(
-        full_screen = TRUE,
-        card_header(icon("chart-bar"), " Margen bruto mensual por CACI"),
-        plotlyOutput("plot_margen", height = "380px")
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab 1 · Resumen
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "resumen",
+        uiOutput("kpi_boxes"),
+        br(),
+        fluidRow(
+          box(title      = tagList(icon("triangle-exclamation"),
+                                   " Alertas ejecutivas por CACI"),
+              solidHeader = TRUE, status = "primary", width = 5,
+              reactableOutput("tabla_alertas", height = "280px")),
+          box(title      = tagList(icon("users"),
+                                   " Pacientes por CACI — evolución mensual"),
+              solidHeader = TRUE, status = "primary", width = 7,
+              plotlyOutput("plot_resumen_pte", height = "280px"))
+        ),
+        fluidRow(
+          box(title      = tagList(icon("circle-dot"),
+                                   " Costo mediano y volumen por CACI"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              plotlyOutput("plot_resumen_bubble", height = "320px"))
+        )
       ),
-      card(
-        full_screen = TRUE,
-        card_header(icon("percent"), " Porcentaje de rentabilidad mensual"),
-        plotlyOutput("plot_pct_rent", height = "380px")
-      )
-    )
-  ),
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # Tab 6 · Histórico
-  # ════════════════════════════════════════════════════════════════════════════
-  nav_panel(
-    title = tagList(icon("clock-rotate-left"), " Histórico"),
-
-    card(
-      full_screen = TRUE,
-      card_header(icon("table"), " Admisiones y rentabilidad por año y CACI"),
-      reactableOutput("tabla_historico")
-    ),
-
-    br(),
-
-    layout_columns(
-      col_widths = c(6, 6),
-      card(
-        full_screen = TRUE,
-        card_header(icon("users"), " Admisiones por año y CACI"),
-        plotlyOutput("plot_hist_pte", height = "380px")
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab 2 · Costos
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "costos",
+        fluidRow(
+          box(title      = tagList(icon("table"),
+                                   " Costo por paciente según CACI y mes"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              reactableOutput("tabla_costo_medio"))
+        ),
+        br(),
+        fluidRow(
+          box(title      = tagList(icon("chart-simple"),
+                                   " Distribución de costos por paciente y CACI"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              plotlyOutput("plot_boxplot_caci", height = "500px"))
+        )
       ),
-      card(
-        full_screen = TRUE,
-        card_header(icon("percent"), " Rentabilidad histórica por CACI"),
-        plotlyOutput("plot_hist_rent", height = "380px")
-      )
-    )
-  ),
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # Tab 7 · Resumen anual
-  # ════════════════════════════════════════════════════════════════════════════
-  nav_panel(
-    title = tagList(icon("calendar"), " Anual"),
-
-    card(
-      full_screen = TRUE,
-      card_header(icon("table"), " Resumen financiero anual por CACI"),
-      reactableOutput("tabla_anual")
-    ),
-
-    br(),
-
-    layout_columns(
-      col_widths = c(6, 6),
-      card(
-        full_screen = TRUE,
-        card_header(icon("percent"), " Rentabilidad por año"),
-        plotlyOutput("plot_rent_anual", height = "380px")
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab 3 · Ticket General
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "ticket",
+        uiOutput("ticket_kpi_boxes"),
+        br(),
+        fluidRow(
+          box(title      = tagList(icon("chart-line"), " Ticket mediana por CACI"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_ticket_caci", height = "380px")),
+          box(title      = tagList(icon("clock-rotate-left"),
+                                   " Comparativo ticket general por año"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_ticket_historico", height = "380px"))
+        ),
+        fluidRow(
+          box(title      = tagList(icon("table"), " Ticket por CACI y mes"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              reactableOutput("tabla_ticket_caci")),
+          box(title      = tagList(icon("table"), " Ticket histórico por año"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              reactableOutput("tabla_ticket_historico"))
+        )
       ),
-      card(
-        full_screen = TRUE,
-        card_header(icon("chart-line"), " Costo total mensual por año (tendencia)"),
-        plotlyOutput("plot_costo_anual", height = "380px")
-      )
-    )
-  ),
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # Tab 8 · Por Unidad
-  # ════════════════════════════════════════════════════════════════════════════
-  nav_panel(
-    title = tagList(icon("hospital"), " Por unidad"),
-
-    card(
-      full_screen = TRUE,
-      card_header(icon("chart-bar"), " Costos por unidad de negocio y CACI"),
-      plotlyOutput("plot_une", height = "600px")
-    )
-  ),
-
-  # ════════════════════════════════════════════════════════════════════════════
-  # Tab 9 · Epidemiología
-  # ════════════════════════════════════════════════════════════════════════════
-  nav_panel(
-    title = tagList(icon("stethoscope"), " Epidemiología"),
-
-    card(
-      full_screen = TRUE,
-      card_header(icon("people-arrows"), " Pirámide poblacional por CACI"),
-      plotlyOutput("plot_piramide", height = "520px")
-    ),
-
-    br(),
-
-    layout_columns(
-      col_widths = c(5, 7),
-      card(
-        full_screen = TRUE,
-        card_header(icon("table"), " Resumen epidemiológico"),
-        reactableOutput("tabla_epi")
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab 4 · Tendencias
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "tendencias",
+        fluidRow(
+          box(title      = tagList(icon("person"),
+                                   " Evolución mensual de pacientes por CACI"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              plotlyOutput("plot_trend_pacientes", height = "380px"))
+        ),
+        br(),
+        fluidRow(
+          box(title      = tagList(icon("chart-bar"),
+                                   " Ventas y costos mensuales por CACI"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              plotlyOutput("plot_financiero", height = "520px"))
+        )
       ),
-      card(
-        full_screen = TRUE,
-        card_header(icon("bed"), " Días de estancia hospitalaria por CACI"),
-        plotlyOutput("plot_estancia", height = "320px")
+
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab 5 · Rentabilidad
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "rentabilidad",
+        fluidRow(
+          box(title      = tagList(icon("table"), " Rentabilidad por mes y CACI"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              reactableOutput("tabla_rentabilidad"))
+        ),
+        br(),
+        fluidRow(
+          box(title      = tagList(icon("chart-bar"),
+                                   " Margen bruto mensual por CACI"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_margen", height = "380px")),
+          box(title      = tagList(icon("percent"),
+                                   " Porcentaje de rentabilidad mensual"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_pct_rent", height = "380px"))
+        )
+      ),
+
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab 6 · Histórico
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "historico",
+        fluidRow(
+          box(title      = tagList(icon("table"),
+                                   " Admisiones y rentabilidad por año y CACI"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              reactableOutput("tabla_historico"))
+        ),
+        br(),
+        fluidRow(
+          box(title      = tagList(icon("users"), " Admisiones por año y CACI"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_hist_pte", height = "380px")),
+          box(title      = tagList(icon("percent"),
+                                   " Rentabilidad histórica por CACI"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_hist_rent", height = "380px"))
+        )
+      ),
+
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab 7 · Resumen anual
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "anual",
+        fluidRow(
+          box(title      = tagList(icon("table"),
+                                   " Resumen financiero anual por CACI"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              reactableOutput("tabla_anual"))
+        ),
+        br(),
+        fluidRow(
+          box(title      = tagList(icon("percent"), " Rentabilidad por año"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_rent_anual", height = "380px")),
+          box(title      = tagList(icon("chart-line"),
+                                   " Costo total mensual por año (tendencia)"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_costo_anual", height = "380px"))
+        )
+      ),
+
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab 8 · Por Unidad
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "por_unidad",
+        fluidRow(
+          box(title      = tagList(icon("hospital"),
+                                   " Costos por unidad de negocio y CACI"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              plotlyOutput("plot_une", height = "600px"))
+        )
+      ),
+
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab 9 · Epidemiología
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "epidemiologia",
+        fluidRow(
+          box(title      = tagList(icon("people-arrows"),
+                                   " Pirámide poblacional por CACI"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              plotlyOutput("plot_piramide", height = "520px"))
+        ),
+        br(),
+        fluidRow(
+          box(title      = tagList(icon("table"), " Resumen epidemiológico"),
+              solidHeader = TRUE, status = "primary", width = 5,
+              reactableOutput("tabla_epi")),
+          box(title      = tagList(icon("bed"),
+                                   " Días de estancia hospitalaria por CACI"),
+              solidHeader = TRUE, status = "primary", width = 7,
+              plotlyOutput("plot_estancia", height = "320px"))
+        )
+      ),
+
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab 10 · Datos detallados
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "datos",
+        fluidRow(
+          box(title      = tagList(icon("magnifying-glass"),
+                                   " Explorador de datos — histórico completo"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              DTOutput("tabla_dt"))
+        )
       )
-    )
-  ),
-
-  # ════════════════════════════════════════════════════════════════════════════
-  # Tab 10 · Datos detallados
-  # ════════════════════════════════════════════════════════════════════════════
-  nav_panel(
-    title = tagList(icon("table"), " Datos"),
-
-    card(
-      full_screen = TRUE,
-      card_header(icon("magnifying-glass"), " Explorador de datos — histórico completo"),
-      DTOutput("tabla_dt")
-    )
-  ),
-
-  nav_spacer(),
-
-  nav_item(
-    tags$span(
-      icon("building-hospital", style = "color:#76B7B2;"),
-      tags$small(" DIME · Epidemiología", style = "color:#adb5bd;")
     )
   )
 )
@@ -442,6 +381,7 @@ server <- function(input, output, session) {
 
   # ── KPIs del año seleccionado ─────────────────────────────────────────────
   kpi_data <- reactive({
+    costo_med <- median(pte_mes()$costo, na.rm = TRUE)
     resumen_caci() %>%
       summarise(
         admisiones = sum(pacientes,   na.rm = TRUE),
@@ -449,7 +389,10 @@ server <- function(input, output, session) {
         costos     = sum(costo_total, na.rm = TRUE),
         margen     = sum(margen,      na.rm = TRUE)
       ) %>%
-      mutate(margen_pct = safe_pct(margen, ventas))
+      mutate(
+        margen_pct    = safe_pct(margen, ventas),
+        costo_mediana = costo_med
+      )
   })
 
   # ── Alertas ejecutivas (excluye Otros CV por su heterogeneidad) ───────────
@@ -557,39 +500,34 @@ server <- function(input, output, session) {
   # ══════════════════════════════════════════════════════════════════════════
   output$kpi_boxes <- renderUI({
     kpi <- kpi_data()
-    layout_columns(
-      fill = FALSE,
-      value_box(
-        title    = "Admisiones CACI",
+    fluidRow(
+      valueBox(
         value    = format(as.integer(kpi$admisiones), big.mark = "."),
-        showcase = bs_icon("person-heart"),
-        theme    = "primary"
+        subtitle = "Admisiones CACI",
+        icon     = icon("person-heart"),
+        color    = "blue",
+        width    = 3
       ),
-      value_box(
-        title    = "Ventas",
-        value    = cop_kpi(kpi$ventas),
-        showcase = bs_icon("graph-up-arrow"),
-        theme    = value_box_theme(bg = "#4E79A7", fg = "white")
+      valueBox(
+        value    = cop_kpi(kpi$costo_mediana),
+        subtitle = "Costo mediano por paciente",
+        icon     = icon("stethoscope"),
+        color    = "purple",
+        width    = 3
       ),
-      value_box(
-        title    = "Costos",
+      valueBox(
         value    = cop_kpi(kpi$costos),
-        showcase = bs_icon("cash-stack"),
-        theme    = "danger"
+        subtitle = "Costos totales",
+        icon     = icon("dollar-sign"),
+        color    = "red",
+        width    = 3
       ),
-      value_box(
-        title    = "Margen bruto",
+      valueBox(
         value    = cop_kpi(kpi$margen),
-        showcase = bs_icon("bank2"),
-        theme    = "success"
-      ),
-      value_box(
-        title    = "Rentabilidad",
-        value    = pct_fmt(kpi$margen_pct),
-        showcase = bs_icon("percent"),
-        theme    = if (!is.na(kpi$margen_pct) && kpi$margen_pct >= 50) "success"
-                   else if (!is.na(kpi$margen_pct) && kpi$margen_pct >= 30) "warning"
-                   else "danger"
+        subtitle = "Margen bruto",
+        icon     = icon("chart-line"),
+        color    = "green",
+        width    = 3
       )
     )
   })
@@ -653,26 +591,27 @@ server <- function(input, output, session) {
       layout(legend = list(orientation = "h", y = -0.3))
   })
 
-  output$plot_resumen_rent <- renderPlotly({
-    df <- resumen_caci() %>% filter(!is.na(caci), venta_total > 0)
-    p <- ggplot(df, aes(x = mes_nombre, y = margen_pct,
-                        color = caci, group = caci,
-                        text  = paste0("<b>", caci, "</b><br>",
-                                       "Mes: ", mes_nombre, "<br>",
-                                       "Rentabilidad: ", pct_fmt(margen_pct)))) +
-      geom_line(linewidth = 1.1) + geom_point(size = 2.5) +
-      geom_hline(yintercept = 50, linetype = "dashed", color = "grey55") +
+  output$plot_resumen_bubble <- renderPlotly({
+    df <- resumen_caci() %>% filter(!is.na(caci), costo_mediana > 0)
+    p <- ggplot(df, aes(x = mes_nombre, y = costo_mediana,
+                        size = pacientes, color = caci,
+                        group = caci,
+                        text = paste0("<b>", caci, "</b><br>",
+                                      "Mes: ", mes_nombre, "<br>",
+                                      "Costo mediano: ", cop(costo_mediana), "<br>",
+                                      "Pacientes: ", pacientes))) +
+      geom_point(alpha = 0.75) +
       scale_color_manual(values = caci_colors) +
-      scale_y_continuous(limits = c(0, 100),
-                         labels = function(x) paste0(x, "%")) +
-      labs(x = NULL, y = "%", color = "CACI",
-           title = paste("Rentabilidad mensual ·", periodo_label())) +
+      scale_size_continuous(range = c(4, 20), name = "Pacientes") +
+      scale_y_continuous(labels = function(x) cop_m(x)) +
+      labs(x = NULL, y = "Costo mediano por paciente", color = "CACI",
+           title = paste("Costo mediano y volumen ·", periodo_label())) +
       theme_classic() +
-      theme(plot.title   = element_text(face = "bold", hjust = 0.5),
-            axis.text.x  = element_text(angle = 45, hjust = 1),
+      theme(plot.title      = element_text(face = "bold", hjust = 0.5),
+            axis.text.x     = element_text(angle = 45, hjust = 1),
             legend.position = "bottom")
     ggplotly(p, tooltip = "text") %>%
-      layout(legend = list(orientation = "h", y = -0.3))
+      layout(legend = list(orientation = "h", y = -0.35))
   })
 
   # ══════════════════════════════════════════════════════════════════════════
@@ -746,26 +685,27 @@ server <- function(input, output, session) {
         p25     = quantile(costo, 0.25, na.rm = TRUE),
         p75     = quantile(costo, 0.75, na.rm = TRUE)
       )
-    layout_columns(
-      fill = FALSE,
-      col_widths = c(4, 4, 4),
-      value_box(
-        title    = "Ticket P25",
+    fluidRow(
+      valueBox(
         value    = cop(kpi$p25),
-        showcase = bs_icon("graph-down-arrow"),
-        theme    = "success"
+        subtitle = "Ticket P25",
+        icon     = icon("arrow-down"),
+        color    = "green",
+        width    = 4
       ),
-      value_box(
-        title    = "Ticket mediana",
+      valueBox(
         value    = cop(kpi$mediana),
-        showcase = bs_icon("graph-up"),
-        theme    = value_box_theme(bg = "#6B4F9B", fg = "white")
+        subtitle = "Ticket mediana",
+        icon     = icon("chart-line"),
+        color    = "purple",
+        width    = 4
       ),
-      value_box(
-        title    = "Ticket P75",
+      valueBox(
         value    = cop(kpi$p75),
-        showcase = bs_icon("exclamation-triangle"),
-        theme    = "danger"
+        subtitle = "Ticket P75",
+        icon     = icon("arrow-up"),
+        color    = "orange",
+        width    = 4
       )
     )
   })

@@ -1,92 +1,82 @@
 /* ── GRD Dashboard · DIME Clínica Neurocardiovascular ──────────────────────── */
 
-/* Navbar */
-.navbar {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+/* ── Header & Sidebar color override to DIME navy ── */
+.skin-blue .main-header .logo,
+.skin-blue .main-header .logo:hover {
+  background-color: #2C3E50 !important;
+  border-bottom-color: #1a252f !important;
 }
 
-.navbar-brand {
-  font-weight: 700;
-  font-size: 1.1rem;
-  letter-spacing: 0.02em;
+.skin-blue .main-header .navbar {
+  background-color: #2C3E50 !important;
 }
 
-/* Sidebar */
-.bslib-sidebar-layout > .sidebar {
-  border-right: 1px solid #dee2e6;
+.skin-blue .main-sidebar,
+.skin-blue .left-side {
+  background-color: #2C3E50 !important;
 }
 
-.sidebar .shiny-input-container label {
+.skin-blue .main-sidebar .sidebar-menu > li.active > a,
+.skin-blue .main-sidebar .sidebar-menu > li > a:hover {
+  background-color: #1a252f !important;
+  border-left-color: #4E79A7 !important;
+}
+
+/* ── Sidebar inputs ── */
+.sidebar label,
+.sidebar .control-label {
+  color: rgba(255, 255, 255, 0.80) !important;
+  font-size: 0.80rem;
   font-weight: 600;
-  font-size: 0.82rem;
-  color: #495057;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 3px;
+  letter-spacing: 0.03em;
+}
+
+.sidebar .checkbox label {
+  color: rgba(255, 255, 255, 0.80) !important;
+  font-weight: 400;
 }
 
 .sidebar hr {
-  border-color: #ced4da;
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
-/* Cards */
-.card {
-  border: none;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10);
-  border-radius: 8px;
-}
-
-.card-header {
-  background: #f8f9fa;
-  border-bottom: 2px solid #2C3E50;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #2C3E50;
-  padding: 10px 16px;
-  border-radius: 8px 8px 0 0 !important;
-}
-
-/* Value boxes */
-.bslib-value-box {
-  border-radius: 10px !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
-}
-
-.bslib-value-box .value-box-value {
-  font-size: 1.35rem !important;
-  font-weight: 700 !important;
-}
-
-.bslib-value-box .value-box-title {
-  font-size: 0.80rem !important;
-  opacity: 0.90;
-}
-
-/* Reactable tables */
-.rt-table {
-  font-size: 0.85rem;
-}
-
-.rt-th {
-  font-size: 0.82rem !important;
-}
-
-/* Action button */
-.btn-primary {
+/* ── Box headers ── */
+.box.box-solid.box-primary > .box-header {
   background-color: #2C3E50 !important;
-  border-color:     #2C3E50 !important;
+  border-color: #2C3E50 !important;
+  color: white !important;
+}
+
+.box.box-solid.box-primary {
+  border: 1px solid #2C3E50 !important;
+}
+
+.box {
+  border-radius: 6px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Value boxes ── */
+.small-box {
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+}
+
+.small-box h3 { font-size: 1.6rem; }
+.small-box p  { font-size: 0.90rem; }
+
+/* ── Reactable tables ── */
+.rt-table  { font-size: 0.84rem; }
+.rt-th     { font-size: 0.81rem !important; }
+
+/* ── Buttons ── */
+.btn-primary {
+  background-color: #4E79A7 !important;
+  border-color:     #4E79A7 !important;
   font-weight: 600;
 }
-
 .btn-primary:hover {
-  background-color: #1a252f !important;
-  border-color:     #1a252f !important;
+  background-color: #3a6080 !important;
+  border-color:     #3a6080 !important;
 }
-
-/* Footer strip */
-footer, .shiny-footer {
-  font-size: 0.78rem;
-  color: #6c757d;
-  text-align: center;
-  padding: 8px 0;
-}
+.btn-block { width: 100%; }

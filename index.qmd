@@ -76,6 +76,14 @@ subtitle: "Epidemiología · Investigación · Docencia"
        · Resistencia bacteriana · Análisis de adherencia</p>
   </a>
 
+  <a class="card-link" href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/los-dime/"
+     style="background: linear-gradient(135deg, #1B4F72, #2E86C1);" target="_blank">
+    <span class="badge badge-live">Interactivo</span>
+    <h3>🛏️ Estancias (LOS)</h3>
+    <p>Longitud de estancia hospitalaria · Larga estancia · Camas inactivas
+       · 7 tabs · Análisis por servicio y CACI</p>
+  </a>
+
 </div>
 ```
 
@@ -87,7 +95,7 @@ Los dashboards interactivos requieren un servidor R. Están disponibles en **shi
 |-----------|-------------|--------|
 | **GRD** | Filtros por año, mes y CACI · 10 tabs · reactivo | [Abrir GRD ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/) |
 | **PROA** | Antibióticos · DDD · Microbiología · Resistencia | [Abrir PROA ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/) |
-| **Estancias (LOS)** | LOS · Larga estancia · Inactivas · 7 tabs | `shinyapps.io` (próximamente) |
+| **Estancias (LOS)** | LOS · Larga estancia · Inactivas · 7 tabs | [Abrir LOS ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/los-dime/) |
 
 > **Nota:** Para publicar los dashboards interactivos, ejecuta `rsconnect::deployApp("shiny_grd")` desde R.
 
