@@ -6,7 +6,7 @@ format:
     embed-resources: true
     theme: flatly
     include-in-header:
-      text: "<style>.quarto-dashboard-header{display:none!important}</style>"
+      text: "<style>nav.slim{display:none!important}</style>"
 ---
 
 ```{r setup}
