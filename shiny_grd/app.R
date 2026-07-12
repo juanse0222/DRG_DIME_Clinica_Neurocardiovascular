@@ -594,24 +594,22 @@ server <- function(input, output, session) {
   output$plot_resumen_bubble <- renderPlotly({
     df <- resumen_caci() %>% filter(!is.na(caci), costo_mediana > 0)
     p <- ggplot(df, aes(x = mes_nombre, y = costo_mediana,
-                        size = pacientes, color = caci,
-                        group = caci,
+                        color = caci, group = caci,
                         text = paste0("<b>", caci, "</b><br>",
                                       "Mes: ", mes_nombre, "<br>",
                                       "Costo mediano: ", cop(costo_mediana), "<br>",
                                       "Pacientes: ", pacientes))) +
-      geom_point(alpha = 0.75) +
+      geom_line(linewidth = 1.1) + geom_point(size = 2.5) +
       scale_color_manual(values = caci_colors) +
-      scale_size_continuous(range = c(4, 20), name = "Pacientes") +
       scale_y_continuous(labels = function(x) cop_m(x)) +
       labs(x = NULL, y = "Costo mediano por paciente", color = "CACI",
-           title = paste("Costo mediano y volumen ·", periodo_label())) +
+           title = paste("Costo mediano por paciente ·", periodo_label())) +
       theme_classic() +
       theme(plot.title      = element_text(face = "bold", hjust = 0.5),
             axis.text.x     = element_text(angle = 45, hjust = 1),
             legend.position = "bottom")
     ggplotly(p, tooltip = "text") %>%
-      layout(legend = list(orientation = "h", y = -0.35))
+      layout(legend = list(orientation = "h", y = -0.3))
   })
 
   # ══════════════════════════════════════════════════════════════════════════
