@@ -44,20 +44,12 @@ subtitle: "Epidemiología · Investigación · Docencia"
 
 <div class="card-grid">
 
-  <a class="card-link" href="test_2.html"
-     style="background: linear-gradient(135deg, #2C3E50, #4E79A7);">
-    <span class="badge badge-static">Dashboard estático</span>
-    <h3>📊 Análisis GRD · 2026</h3>
-    <p>Grupos Relacionados de Diagnóstico · Costos, ventas y rentabilidad por CACI
-       · Ticket general · Perfil epidemiológico · Histórico 2024 – 2026</p>
-  </a>
-
   <a class="card-link" href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/"
      style="background: linear-gradient(135deg, #1a6b3a, #59A14F);" target="_blank">
     <span class="badge badge-live">Interactivo</span>
-    <h3>⚡ GRD Shiny · Reactivo</h3>
+    <h3>📊 GRD · Grupos Relacionados de Diagnóstico</h3>
     <p>Filtros dinámicos por año, mes y CACI · 10 tabs · Costos, ticket, rentabilidad,
-       epidemiología e histórico · Actualizado jun 2026</p>
+       epidemiología e histórico · Actualizado jul 2026</p>
   </a>
 
   <a class="card-link" href="mortality_dashboard.html"
@@ -93,9 +85,9 @@ Los dashboards interactivos requieren un servidor R. Están disponibles en **shi
 
 | Dashboard | Descripción | Enlace |
 |-----------|-------------|--------|
-| **GRD** | Filtros por año, mes y CACI · 10 tabs · reactivo | [Abrir GRD ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/) |
+| **GRD** | Costos · ticket · rentabilidad · epidemiología · 10 tabs | [Abrir GRD ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/) |
+| **LOS** | Estancias · Larga estancia · Inactivas · 8 tabs | [Abrir LOS ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/los-dime/) |
 | **PROA** | Antibióticos · DDD · Microbiología · Resistencia | [Abrir PROA ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/) |
-| **Estancias (LOS)** | LOS · Larga estancia · Inactivas · 7 tabs | [Abrir LOS ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/los-dime/) |
 
 > **Nota:** Para publicar los dashboards interactivos, ejecuta `rsconnect::deployApp("shiny_grd")` desde R.
 

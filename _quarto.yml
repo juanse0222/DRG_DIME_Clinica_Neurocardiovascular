@@ -3,7 +3,6 @@ project:
   output-dir: docs
   render:
     - index.qmd
-    - test_2.qmd     # GRD dashboard → docs/test_2.html
 
 website:
   title: "DIME · Epidemiología"
@@ -21,15 +20,16 @@ website:
     left:
       - text: "Inicio"
         href: index.qmd
-      - text: "GRD 2026"
-        href: test_2.html
       - text: "Mortalidad"
         href: mortality_dashboard.html
-      - text: "PROA"
-        href: https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/
+      - text: "GRD"
+        href: https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/
         target: _blank
       - text: "LOS"
         href: https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/los-dime/
+        target: _blank
+      - text: "PROA"
+        href: https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/
         target: _blank
     right:
       - icon: github

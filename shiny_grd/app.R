@@ -397,6 +397,11 @@ server <- function(input, output, session) {
 
   # ── Alertas ejecutivas (excluye Otros CV por su heterogeneidad) ───────────
   alertas_caci <- reactive({
+    mediana_caci <- pte_mes() %>%
+      filter(!is.na(caci), as.character(caci) != "Otros CV") %>%
+      group_by(caci) %>%
+      summarise(`Costo mediano` = median(costo, na.rm = TRUE), .groups = "drop")
+
     resumen_caci() %>%
       filter(!is.na(caci), as.character(caci) != "Otros CV") %>%
       group_by(caci) %>%
@@ -404,10 +409,10 @@ server <- function(input, output, session) {
         Pacientes    = sum(pacientes,   na.rm = TRUE),
         Ventas       = sum(venta_total, na.rm = TRUE),
         Costos       = sum(costo_total, na.rm = TRUE),
-        Margen       = sum(margen,      na.rm = TRUE),
-        Rentabilidad = safe_pct(Margen, Ventas),
+        Rentabilidad = safe_pct(sum(margen, na.rm = TRUE), Ventas),
         .groups = "drop"
       ) %>%
+      left_join(mediana_caci, by = "caci") %>%
       mutate(
         Alerta = case_when(
           is.na(Rentabilidad)   ~ "Sin ventas",
@@ -542,12 +547,13 @@ server <- function(input, output, session) {
       compact       = TRUE,
       defaultColDef = colDef(align = "center"),
       columns = list(
-        caci         = colDef(name = "CACI",   sticky = "left", minWidth = 75),
-        Pacientes    = colDef(name = "Pac.",   format = colFormat(separators = TRUE)),
-        Ventas       = colDef(name = "Ventas", cell = function(v) cop(v), align = "right"),
-        Costos       = colDef(name = "Costos", cell = function(v) cop(v), align = "right"),
-        Margen       = colDef(name = "Margen", cell = function(v) cop(v), align = "right"),
-        Rentabilidad = colDef(
+        caci              = colDef(name = "CACI",          sticky = "left", minWidth = 70),
+        Pacientes         = colDef(name = "Pac.",          format = colFormat(separators = TRUE)),
+        `Costo mediano`   = colDef(name = "Costo med.",    cell = function(v) cop(v),
+                                   align = "right", minWidth = 120),
+        Ventas            = colDef(name = "Ventas",        cell = function(v) cop(v), align = "right"),
+        Costos            = colDef(name = "Costos",        cell = function(v) cop(v), align = "right"),
+        Rentabilidad      = colDef(
           name = "Rent. %",
           cell = function(v) pct_fmt(v),
           style = function(v) {

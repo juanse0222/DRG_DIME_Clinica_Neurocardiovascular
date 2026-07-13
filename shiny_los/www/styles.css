@@ -1,0 +1,98 @@
+/* ── GRD Dashboard · DIME Clínica Neurocardiovascular ──────────────────────── */
+
+/* ── Header & Sidebar color override to DIME navy ── */
+.skin-blue .main-header .logo,
+.skin-blue .main-header .logo:hover {
+  background-color: #2C3E50 !important;
+  border-bottom-color: #1a252f !important;
+}
+
+.skin-blue .main-header .navbar {
+  background-color: #2C3E50 !important;
+}
+
+.skin-blue .main-sidebar,
+.skin-blue .left-side {
+  background-color: #2C3E50 !important;
+}
+
+.skin-blue .main-sidebar .sidebar-menu > li.active > a,
+.skin-blue .main-sidebar .sidebar-menu > li > a:hover {
+  background-color: #1a252f !important;
+  border-left-color: #4E79A7 !important;
+}
+
+/* ── Sidebar inputs ── */
+.sidebar label,
+.sidebar .control-label {
+  color: rgba(255, 255, 255, 0.80) !important;
+  font-size: 0.80rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.sidebar .checkbox label {
+  color: rgba(255, 255, 255, 0.80) !important;
+  font-weight: 400;
+}
+
+.sidebar hr {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ── Box headers ── */
+.box.box-solid.box-primary > .box-header {
+  background-color: #2C3E50 !important;
+  border-color: #2C3E50 !important;
+  color: white !important;
+}
+
+.box.box-solid.box-primary {
+  border: 1px solid #2C3E50 !important;
+}
+
+.box {
+  border-radius: 6px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Value boxes ── */
+.small-box {
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+}
+
+.small-box h3 { font-size: 1.9rem; }
+.small-box p  { font-size: 1.0rem; }
+
+/* ── Global font size ── */
+body,
+.content-wrapper,
+.main-footer {
+  font-size: 15px !important;
+}
+
+.box-body,
+.box-footer {
+  font-size: 14px;
+}
+
+.sidebar-menu > li > a {
+  font-size: 14px;
+}
+
+/* ── Reactable tables ── */
+.rt-table  { font-size: 0.92rem; }
+.rt-th     { font-size: 0.88rem !important; }
+
+/* ── Buttons ── */
+.btn-primary {
+  background-color: #4E79A7 !important;
+  border-color:     #4E79A7 !important;
+  font-weight: 600;
+}
+.btn-primary:hover {
+  background-color: #3a6080 !important;
+  border-color:     #3a6080 !important;
+}
+.btn-block { width: 100%; }
