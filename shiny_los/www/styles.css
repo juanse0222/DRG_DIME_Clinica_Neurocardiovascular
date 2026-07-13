@@ -26,7 +26,7 @@
 .sidebar label,
 .sidebar .control-label {
   color: rgba(255, 255, 255, 0.80) !important;
-  font-size: 0.80rem;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.03em;
 }
@@ -66,24 +66,32 @@
 .small-box p  { font-size: 1.0rem; }
 
 /* ── Global font size ── */
+html { font-size: 15px !important; }
+
 body,
 .content-wrapper,
+.right-side,
 .main-footer {
   font-size: 15px !important;
 }
 
 .box-body,
 .box-footer {
-  font-size: 14px;
+  font-size: 15px !important;
 }
 
 .sidebar-menu > li > a {
-  font-size: 14px;
+  font-size: 14px !important;
 }
 
 /* ── Reactable tables ── */
-.rt-table  { font-size: 0.92rem; }
-.rt-th     { font-size: 0.88rem !important; }
+.rt-table  { font-size: 14px !important; }
+.rt-th     { font-size: 13px !important; }
+.rt-td     { font-size: 14px !important; }
+
+/* ── DT tables ── */
+.dataTables_wrapper,
+.dataTables_wrapper table { font-size: 14px !important; }
 
 /* ── Buttons ── */
 .btn-primary {

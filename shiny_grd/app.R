@@ -28,9 +28,9 @@ ui <- dashboardPage(
       menuItem("Resumen",       tabName = "resumen",       icon = icon("chart-line")),
       menuItem("Costos",        tabName = "costos",        icon = icon("dollar-sign")),
       menuItem("Ticket",        tabName = "ticket",        icon = icon("receipt")),
-      menuItem("Tendencias",    tabName = "tendencias",    icon = icon("arrow-trend-up")),
-      menuItem("Rentabilidad",  tabName = "rentabilidad",  icon = icon("sack-dollar")),
-      menuItem("Histórico",     tabName = "historico",     icon = icon("clock-rotate-left")),
+      menuItem("Tendencias",    tabName = "tendencias",    icon = icon("arrow-up")),
+      menuItem("Rentabilidad",  tabName = "rentabilidad",  icon = icon("dollar-sign")),
+      menuItem("Histórico",     tabName = "historico",     icon = icon("history")),
       menuItem("Anual",         tabName = "anual",         icon = icon("calendar")),
       menuItem("Por unidad",    tabName = "por_unidad",    icon = icon("hospital")),
       menuItem("Epidemiología", tabName = "epidemiologia", icon = icon("stethoscope")),
@@ -52,7 +52,7 @@ ui <- dashboardPage(
                          choices = caci_choices, selected = caci_choices),
       tags$hr(style = "border-color:rgba(255,255,255,.2); margin:6px 0;"),
       actionButton("btn_update", "Actualizar",
-                   icon = icon("rotate"), class = "btn-primary btn-block"),
+                   icon = icon("sync"), class = "btn-primary btn-block"),
       br(),
       tags$small(
         tags$em(
@@ -75,7 +75,7 @@ ui <- dashboardPage(
         uiOutput("kpi_boxes"),
         br(),
         fluidRow(
-          box(title      = tagList(icon("triangle-exclamation"),
+          box(title      = tagList(icon("exclamation-triangle"),
                                    " Alertas ejecutivas por CACI"),
               solidHeader = TRUE, status = "primary", width = 5,
               reactableOutput("tabla_alertas", height = "280px")),
@@ -85,7 +85,7 @@ ui <- dashboardPage(
               plotlyOutput("plot_resumen_pte", height = "280px"))
         ),
         fluidRow(
-          box(title      = tagList(icon("circle-dot"),
+          box(title      = tagList(icon("dot-circle"),
                                    " Costo mediano y volumen por CACI"),
               solidHeader = TRUE, status = "primary", width = 12,
               plotlyOutput("plot_resumen_bubble", height = "320px"))
@@ -104,7 +104,7 @@ ui <- dashboardPage(
         ),
         br(),
         fluidRow(
-          box(title      = tagList(icon("chart-simple"),
+          box(title      = tagList(icon("chart-bar"),
                                    " Distribución de costos por paciente y CACI"),
               solidHeader = TRUE, status = "primary", width = 12,
               plotlyOutput("plot_boxplot_caci", height = "500px"))
@@ -121,7 +121,7 @@ ui <- dashboardPage(
           box(title      = tagList(icon("chart-line"), " Ticket mediana por CACI"),
               solidHeader = TRUE, status = "primary", width = 6,
               plotlyOutput("plot_ticket_caci", height = "380px")),
-          box(title      = tagList(icon("clock-rotate-left"),
+          box(title      = tagList(icon("history"),
                                    " Comparativo ticket general por año"),
               solidHeader = TRUE, status = "primary", width = 6,
               plotlyOutput("plot_ticket_historico", height = "380px"))
@@ -238,7 +238,7 @@ ui <- dashboardPage(
       # ════════════════════════════════════════════════════════════════════════
       tabItem(tabName = "epidemiologia",
         fluidRow(
-          box(title      = tagList(icon("people-arrows"),
+          box(title      = tagList(icon("users"),
                                    " Pirámide poblacional por CACI"),
               solidHeader = TRUE, status = "primary", width = 12,
               plotlyOutput("plot_piramide", height = "520px"))
@@ -260,7 +260,7 @@ ui <- dashboardPage(
       # ════════════════════════════════════════════════════════════════════════
       tabItem(tabName = "datos",
         fluidRow(
-          box(title      = tagList(icon("magnifying-glass"),
+          box(title      = tagList(icon("search"),
                                    " Explorador de datos — histórico completo"),
               solidHeader = TRUE, status = "primary", width = 12,
               DTOutput("tabla_dt"))
@@ -349,16 +349,18 @@ server <- function(input, output, session) {
   })
 
   # ── Costo por paciente × CACI × mes ──────────────────────────────────────
-  # La unidad de análisis es la admisión (identificacion): sumamos todos sus
-  # cargos del mes y obtenemos un costo total por persona.
+  # Filtra desde pte_base (ya agregado en global.R): rápido en cada sesión.
   pte_mes <- reactive({
-    data_costo_filt() %>%
-      filter(!is.na(caci), !is.na(identificacion)) %>%
-      group_by(identificacion, caci, mes_cargue) %>%
-      summarise(costo = sum(costo, na.rm = TRUE),
-                venta = sum(venta, na.rm = TRUE),
-                .groups = "drop") %>%
-      mutate(mes_nombre = mes_factor(mes_cargue))
+    trigger()
+    yr    <- as.integer(isolate(input$yr))
+    mon   <- as.integer(isolate(input$mon))
+    cacis <- isolate(input$caci_sel)
+
+    df <- pte_base %>%
+      filter(año == yr, as.character(caci) %in% cacis)
+
+    if (mon > 0L) df <- df %>% filter(mes_cargue == mon)
+    df
   })
 
   # ── Resumen mensual por CACI ──────────────────────────────────────────────
@@ -426,8 +428,13 @@ server <- function(input, output, session) {
 
   # ── Resumen anual por CACI (histórico) ───────────────────────────────────
   resumen_anual <- reactive({
-    data_costo_hist() %>%
-      filter(!is.na(caci)) %>%
+    trigger()
+    yr_desde <- as.integer(isolate(input$yr_desde))
+    yr       <- as.integer(isolate(input$yr))
+    cacis    <- isolate(input$caci_sel)
+
+    pte_base %>%
+      filter(año >= yr_desde, año <= yr, as.character(caci) %in% cacis) %>%
       group_by(año, caci) %>%
       summarise(
         pacientes   = n_distinct(identificacion),
@@ -457,10 +464,13 @@ server <- function(input, output, session) {
   })
 
   ticket_historico <- reactive({
-    data_costo_hist() %>%
-      filter(!is.na(caci), !is.na(identificacion)) %>%
-      group_by(identificacion, mes_cargue, año) %>%
-      summarise(costo = sum(costo, na.rm = TRUE), .groups = "drop") %>%
+    trigger()
+    yr_desde <- as.integer(isolate(input$yr_desde))
+    yr       <- as.integer(isolate(input$yr))
+    cacis    <- isolate(input$caci_sel)
+
+    pte_base %>%
+      filter(año >= yr_desde, año <= yr, as.character(caci) %in% cacis) %>%
       group_by(mes_cargue, año) %>%
       summarise(
         pacientes      = n_distinct(identificacion),
@@ -478,12 +488,13 @@ server <- function(input, output, session) {
 
   # Resumen mensual histórico multi-año (para tab Anual — tendencia de costos)
   resumen_caci_hist <- reactive({
-    data_costo_hist() %>%
-      filter(!is.na(caci), !is.na(identificacion)) %>%
-      group_by(identificacion, caci, mes_cargue, año) %>%
-      summarise(costo = sum(costo, na.rm = TRUE),
-                venta = sum(venta, na.rm = TRUE),
-                .groups = "drop") %>%
+    trigger()
+    yr_desde <- as.integer(isolate(input$yr_desde))
+    yr       <- as.integer(isolate(input$yr))
+    cacis    <- isolate(input$caci_sel)
+
+    pte_base %>%
+      filter(año >= yr_desde, año <= yr, as.character(caci) %in% cacis) %>%
       group_by(caci, mes_cargue, año) %>%
       summarise(
         pacientes   = n_distinct(identificacion),
@@ -509,7 +520,7 @@ server <- function(input, output, session) {
       valueBox(
         value    = format(as.integer(kpi$admisiones), big.mark = "."),
         subtitle = "Admisiones CACI",
-        icon     = icon("person-heart"),
+        icon     = icon("heartbeat"),
         color    = "blue",
         width    = 3
       ),
@@ -683,6 +694,7 @@ server <- function(input, output, session) {
   # Tab 3 · Ticket General
   # ══════════════════════════════════════════════════════════════════════════
   output$ticket_kpi_boxes <- renderUI({
+    req(nrow(pte_mes()) > 0)
     kpi <- pte_mes() %>%
       summarise(
         mediana = median(costo, na.rm = TRUE),
@@ -715,6 +727,7 @@ server <- function(input, output, session) {
   })
 
   output$plot_ticket_caci <- renderPlotly({
+    req(nrow(ticket_caci()) > 0)
     df <- ticket_caci() %>% filter(!is.na(caci))
     p <- ggplot(df, aes(x = mes_nombre, y = ticket_mediana,
                         color = caci, group = caci,
@@ -740,6 +753,7 @@ server <- function(input, output, session) {
   })
 
   output$plot_ticket_historico <- renderPlotly({
+    req(nrow(ticket_historico()) > 0)
     df <- ticket_historico()
     p <- ggplot(df, aes(x = año_mes, y = ticket_mediana,
                         color = año_label, group = año_label,
@@ -767,6 +781,7 @@ server <- function(input, output, session) {
   })
 
   output$tabla_ticket_caci <- renderReactable({
+    req(nrow(ticket_caci()) > 0)
     df <- ticket_caci() %>%
       filter(!is.na(caci)) %>%
       arrange(mes_cargue, caci) %>%
@@ -802,6 +817,7 @@ server <- function(input, output, session) {
   })
 
   output$tabla_ticket_historico <- renderReactable({
+    req(nrow(ticket_historico()) > 0)
     df <- ticket_historico() %>%
       arrange(año, mes_cargue) %>%
       transmute(

@@ -225,6 +225,19 @@ prep_grd <- function(df) {
 data_costo_base <- prep_costo(data_costo_raw)
 data_grd_base   <- prep_grd(data_grd_raw)
 
+# ── Pre-agregación por paciente × CACI × mes (50× más pequeño que el detalle) ─
+# Todos los reactivos de ticket, histórico y anual filtran desde aquí,
+# evitando que el servidor procese datos de cargo individuales en cada sesión.
+pte_base <- data_costo_base %>%
+  filter(!is.na(caci), !is.na(identificacion)) %>%
+  group_by(identificacion, caci, año, mes_cargue) %>%
+  summarise(
+    costo = sum(costo, na.rm = TRUE),
+    venta = sum(venta, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(mes_nombre = mes_factor(mes_cargue))
+
 # ── Opciones para selectores UI ───────────────────────────────────────────────
 year_choices <- sort(unique(na.omit(data_costo_base$año)), decreasing = TRUE)
 caci_choices <- levels(data_costo_base$caci)   # orden jerárquico del factor
