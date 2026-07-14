@@ -216,35 +216,102 @@ title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
 .accent-proa   { border-top: 4px solid #CA6F1E; }
 .accent-los    { border-top: 4px solid #2E86C1; }
 
-/* ── CACI cards ──────────────────────────────────────────────────────── */
+/* ── CACI section ────────────────────────────────────────────────────── */
 .caci-section {
   background: var(--dime-light);
   border-radius: var(--radius);
   padding: 34px 36px 30px;
   margin-bottom: 48px;
 }
+.caci-def-box {
+  background: white;
+  border-left: 5px solid var(--dime-blue);
+  border-radius: 0 10px 10px 0;
+  padding: 18px 22px;
+  margin: 18px 0 22px;
+  font-size: .91rem;
+  color: #2a3a4a;
+  line-height: 1.75;
+}
+.caci-def-box strong { color: var(--dime-teal); }
+.caci-phases {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 18px 0 24px;
+}
+.caci-phase {
+  background: white;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: .78rem;
+  color: var(--dime-teal);
+  font-weight: 600;
+  border: 1px solid #ccd8e6;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.caci-phase-num {
+  background: var(--dime-blue);
+  color: white;
+  border-radius: 50%;
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.caci-note {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-size: .83rem;
+  color: #5a4a00;
+  line-height: 1.65;
+  margin: 0 0 22px;
+}
+.caci-note strong { color: #3d3000; }
 .caci-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 14px;
-  margin-top: 22px;
+  gap: 12px;
+  margin-top: 4px;
 }
 .caci-card {
   background: white;
   border-radius: 10px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   box-shadow: 0 1px 6px rgba(0,0,0,.07);
   border-left: 4px solid transparent;
 }
+.caci-card-badge {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  display: inline-block;
+}
+.badge-oficial { background: #e8f0fe; color: #1a4fa8; }
+.badge-ampliado { background: #f3f4f6; color: #6b7280; }
 .caci-code {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 800;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .caci-name {
-  font-size: .8rem;
+  font-size: .79rem;
   color: #5a6a7a;
   line-height: 1.4;
+}
+.caci-source {
+  font-size: .72rem;
+  color: #9aaabb;
+  margin-top: 18px;
 }
 
 /* ── Info columns ────────────────────────────────────────────────────── */
@@ -529,42 +596,97 @@ title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
      CACI
 ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="caci-section">
-  <div class="section-label">Clasificación institucional</div>
-  <div class="section-title">¿Qué es CACI?</div>
-  <p style="font-size:.92rem; color:#3a4a5a; line-height:1.7; max-width:700px; margin:0;">
-    <strong>CACI (Centros de Atención Clínica Integral)</strong> es la
-    clasificación propia de DIME que agrupa los ingresos hospitalarios según el
-    diagnóstico cardiovascular principal del paciente. Esta agrupación permite
-    comparar costos, rentabilidad y desempeño clínico entre grupos de patología
-    homogéneos, y es el eje de análisis transversal de todos los dashboards.
-    La jerarquía de clasificación aplica los diagnósticos de egreso en orden de
-    prioridad clínica: primero el diagnóstico principal, luego el secundario.
+  <div class="section-label">Modelo de atención institucional</div>
+  <div class="section-title">¿Qué son los CACI?</div>
+
+  <p style="font-size:.92rem; color:#3a4a5a; line-height:1.75; margin:10px 0 0;">
+    Los <strong>CACI (Centros de Atención Clínica Integral)</strong> son grupos
+    especializados y multidisciplinarios que estructuran el modelo de atención de
+    DIME para las patologías cardiovasculares y neurológicas de mayor complejidad.
+    Cada CACI integra equipos de varias especialidades clínicas, de enfermería y
+    de rehabilitación que actúan de manera coordinada alrededor de un paciente con
+    una patología específica, garantizando que cada caso reciba todas las
+    evaluaciones e intervenciones que su condición requiere, en el momento oportuno
+    y con los más altos estándares de seguridad y calidad.
+  </p>
+
+  <div class="caci-def-box">
+    <strong>Definición institucional (dime.com.co):</strong><br>
+    "Herramienta para atender, evaluar y mejorar integralmente la seguridad y calidad
+    de la atención de los pacientes con patologías de alto costo e impacto social.
+    DIME ha desarrollado estos centros para el tratamiento multidisciplinario de los
+    pacientes según sus patologías más prevalentes, garantizando una atención
+    coordinada con altos niveles de seguridad, humanización y calidad en cada etapa
+    del proceso asistencial."
+  </div>
+
+  <p style="font-size:.85rem; font-weight:600; color:var(--dime-teal); margin:0 0 8px;">
+    Fases de atención en cada CACI
+  </p>
+  <div class="caci-phases">
+    <div class="caci-phase"><span class="caci-phase-num">1</span>Prevención primaria</div>
+    <div class="caci-phase"><span class="caci-phase-num">2</span>Diagnóstico oportuno</div>
+    <div class="caci-phase"><span class="caci-phase-num">3</span>Tratamiento especializado</div>
+    <div class="caci-phase"><span class="caci-phase-num">4</span>Prevención secundaria</div>
+    <div class="caci-phase"><span class="caci-phase-num">5</span>Rehabilitación y seguimiento</div>
+  </div>
+
+  <div class="caci-note">
+    <strong>¿Cómo se usan los CACI en este portal?</strong><br>
+    Para fines epidemiológicos y de gestión, los CACI se utilizan como unidad de
+    clasificación de los ingresos hospitalarios: a cada paciente se le asigna el
+    grupo CACI correspondiente a su diagnóstico cardiovascular principal, siguiendo
+    una jerarquía clínica basada en los diagnósticos de egreso. Esto permite
+    comparar costos, rentabilidad, volumen y desempeño clínico entre grupos de
+    patología homogéneos.<br><br>
+    <strong>El análisis GRD (Grupos Relacionados de Diagnóstico)</strong> está
+    enteramente estructurado sobre esta clasificación: cada registro de costo,
+    venta y estancia queda vinculado a un grupo CACI, lo que convierte esta
+    taxonomía en el eje transversal de todos los indicadores financieros y clínicos
+    del portal.
+  </div>
+
+  <p style="font-size:.85rem; font-weight:600; color:var(--dime-teal); margin:0 0 10px;">
+    Grupos CACI en el análisis
   </p>
   <div class="caci-grid">
     <div class="caci-card" style="border-color:#E15759;">
+      <span class="caci-card-badge badge-oficial">Centro oficial DIME</span>
       <div class="caci-code" style="color:#E15759;">ICC</div>
       <div class="caci-name">Insuficiencia Cardíaca Congestiva</div>
     </div>
     <div class="caci-card" style="border-color:#4E79A7;">
+      <span class="caci-card-badge badge-oficial">Centro oficial DIME</span>
       <div class="caci-code" style="color:#4E79A7;">ACV</div>
       <div class="caci-name">Accidente Cerebrovascular</div>
     </div>
     <div class="caci-card" style="border-color:#F28E2B;">
+      <span class="caci-card-badge badge-oficial">Centro oficial DIME</span>
       <div class="caci-code" style="color:#F28E2B;">SCA</div>
       <div class="caci-name">Síndrome Coronario Agudo</div>
     </div>
-    <div class="caci-card" style="border-color:#76B7B2;">
-      <div class="caci-code" style="color:#76B7B2;">TEP</div>
-      <div class="caci-name">Tromboembolia Pulmonar</div>
-    </div>
     <div class="caci-card" style="border-color:#59A14F;">
+      <span class="caci-card-badge badge-oficial">Centro oficial DIME</span>
       <div class="caci-code" style="color:#59A14F;">TxC</div>
       <div class="caci-name">Trasplante Cardíaco</div>
     </div>
+    <div class="caci-card" style="border-color:#76B7B2;">
+      <span class="caci-card-badge badge-ampliado">Seguimiento epidemiológico</span>
+      <div class="caci-code" style="color:#76B7B2;">TEP</div>
+      <div class="caci-name">Tromboembolia Pulmonar</div>
+    </div>
     <div class="caci-card" style="border-color:#B07AA1;">
+      <span class="caci-card-badge badge-ampliado">Seguimiento epidemiológico</span>
       <div class="caci-code" style="color:#B07AA1;">Otros CV</div>
       <div class="caci-name">Otras cardiopatías cardiovasculares</div>
     </div>
+  </div>
+
+  <div class="caci-source">
+    Fuente: <a href="https://www.dime.com.co/quienes-somos/" target="_blank"
+    style="color:#6a8aaa;">dime.com.co — Quiénes somos</a> ·
+    <a href="https://www.dime.com.co/centro-avanzado-de-atencion-clinica-integral-de-ataque-cerebrovascular-acv/"
+    target="_blank" style="color:#6a8aaa;">Centro Avanzado ACV</a>
   </div>
 </div>
 
