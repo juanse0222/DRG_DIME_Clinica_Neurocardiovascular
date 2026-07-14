@@ -532,7 +532,7 @@ title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
   <div class="section-label">Clasificación institucional</div>
   <div class="section-title">¿Qué es CACI?</div>
   <p style="font-size:.92rem; color:#3a4a5a; line-height:1.7; max-width:700px; margin:0;">
-    <strong>CACI (Cardiopatías de Alta Complejidad Institucional)</strong> es la
+    <strong>CACI (Centros de Atención Clínica Integral)</strong> es la
     clasificación propia de DIME que agrupa los ingresos hospitalarios según el
     diagnóstico cardiovascular principal del paciente. Esta agrupación permite
     comparar costos, rentabilidad y desempeño clínico entre grupos de patología
