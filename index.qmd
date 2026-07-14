@@ -1,112 +1,725 @@
 ---
 title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
-subtitle: "Epidemiología · Investigación · Docencia"
 ---
 
 ```{=html}
+<!-- ══════════════════════════════════════════════════════════════════════════
+     ESTILOS GLOBALES
+═══════════════════════════════════════════════════════════════════════════ -->
 <style>
-.card-link {
-  display: block;
-  padding: 20px 24px;
-  border-radius: 10px;
+/* ── Variables de color DIME ─────────────────────────────────────────── */
+:root {
+  --dime-navy:   #1a2a3a;
+  --dime-teal:   #2C3E50;
+  --dime-blue:   #4E79A7;
+  --dime-green:  #1a6b3a;
+  --dime-purple: #6C3483;
+  --dime-orange: #784212;
+  --dime-brown:  #1B4F72;
+  --dime-light:  #f4f6f9;
+  --radius:      12px;
+}
+
+/* ── Hero ────────────────────────────────────────────────────────────── */
+.hero-banner {
+  background: linear-gradient(135deg, #0d1f2d 0%, #1a3a4a 55%, #1e5470 100%);
+  border-radius: var(--radius);
+  padding: 52px 40px 44px;
+  margin: 0 0 40px;
+  position: relative;
+  overflow: hidden;
   color: white;
-  text-decoration: none;
-  margin-bottom: 16px;
-  box-shadow: 0 3px 12px rgba(0,0,0,.15);
-  transition: transform .15s, box-shadow .15s;
 }
-.card-link:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 18px rgba(0,0,0,.22);
+.hero-banner::before {
+  content: "";
+  position: absolute;
+  top: -80px; right: -80px;
+  width: 340px; height: 340px;
+  background: radial-gradient(circle, rgba(78,121,167,.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-banner::after {
+  content: "";
+  position: absolute;
+  bottom: -60px; left: -60px;
+  width: 280px; height: 280px;
+  background: radial-gradient(circle, rgba(26,107,58,.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-eyebrow {
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.55);
+  margin-bottom: 10px;
+}
+.hero-title {
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0 0 14px;
   color: white;
-  text-decoration: none;
 }
-.card-link h3 { margin: 0 0 6px; font-size: 1.15rem; font-weight: 700; }
-.card-link p  { margin: 0; font-size: .88rem; opacity: .92; }
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-  margin: 24px 0;
+.hero-sub {
+  font-size: 1.05rem;
+  color: rgba(255,255,255,.75);
+  max-width: 640px;
+  line-height: 1.65;
+  margin: 0 0 28px;
 }
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
+.hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.hero-tag {
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: .8rem;
+  color: rgba(255,255,255,.85);
+  backdrop-filter: blur(4px);
+}
+
+/* ── Sección de título ───────────────────────────────────────────────── */
+.section-label {
   font-size: .72rem;
   font-weight: 700;
-  margin-bottom: 8px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--dime-blue);
+  margin-bottom: 4px;
 }
-.badge-new    { background: #59A14F; color: white; }
-.badge-live   { background: #4E79A7; color: white; }
-.badge-static { background: #F28E2B; color: white; }
+.section-title {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--dime-teal);
+  margin: 0 0 6px;
+}
+.section-sub {
+  font-size: .92rem;
+  color: #5a6a7a;
+  margin: 0 0 28px;
+}
+
+/* ── Cards de dashboard ──────────────────────────────────────────────── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 22px;
+  margin-bottom: 50px;
+}
+.dash-card {
+  background: white;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  border: 1px solid #e8ecf0;
+  display: flex;
+  flex-direction: column;
+  transition: transform .18s, box-shadow .18s;
+  text-decoration: none !important;
+  color: inherit !important;
+}
+.dash-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 28px rgba(0,0,0,.13);
+  text-decoration: none !important;
+}
+.dash-card-header {
+  padding: 22px 22px 16px;
+  position: relative;
+}
+.dash-card-icon {
+  font-size: 1.9rem;
+  display: block;
+  margin-bottom: 10px;
+  line-height: 1;
+}
+.dash-card-badge {
+  position: absolute;
+  top: 18px; right: 18px;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.badge-live   { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+.badge-static { background: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
+.dash-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1a2a3a;
+  margin: 0 0 4px;
+}
+.dash-card-short {
+  font-size: .82rem;
+  color: #7a8a9a;
+  font-weight: 500;
+  margin: 0;
+}
+.dash-card-body {
+  padding: 0 22px 16px;
+  flex: 1;
+}
+.dash-card-desc {
+  font-size: .88rem;
+  color: #3a4a5a;
+  line-height: 1.65;
+  margin: 0 0 14px;
+}
+.dash-card-features {
+  list-style: none;
+  padding: 0; margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.dash-card-features li {
+  font-size: .8rem;
+  color: #5a6a7a;
+  padding-left: 16px;
+  position: relative;
+}
+.dash-card-features li::before {
+  content: "›";
+  position: absolute;
+  left: 0;
+  color: var(--dime-blue);
+  font-weight: 700;
+}
+.dash-card-footer {
+  padding: 14px 22px;
+  border-top: 1px solid #f0f3f6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dash-card-update {
+  font-size: .75rem;
+  color: #9aaabb;
+}
+.dash-card-btn {
+  font-size: .78rem;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 6px;
+  color: white !important;
+  text-decoration: none !important;
+  transition: opacity .15s;
+}
+.dash-card-btn:hover { opacity: .88; text-decoration: none !important; }
+
+/* ── Barra de acento superior de cada card ───────────────────────────── */
+.accent-grd    { border-top: 4px solid #59A14F; }
+.accent-mort   { border-top: 4px solid #A569BD; }
+.accent-proa   { border-top: 4px solid #CA6F1E; }
+.accent-los    { border-top: 4px solid #2E86C1; }
+
+/* ── CACI cards ──────────────────────────────────────────────────────── */
+.caci-section {
+  background: var(--dime-light);
+  border-radius: var(--radius);
+  padding: 34px 36px 30px;
+  margin-bottom: 48px;
+}
+.caci-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+.caci-card {
+  background: white;
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.07);
+  border-left: 4px solid transparent;
+}
+.caci-code {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.caci-name {
+  font-size: .8rem;
+  color: #5a6a7a;
+  line-height: 1.4;
+}
+
+/* ── Info columns ────────────────────────────────────────────────────── */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+  margin-bottom: 48px;
+}
+.info-card {
+  background: white;
+  border-radius: var(--radius);
+  padding: 24px 22px;
+  box-shadow: 0 1px 8px rgba(0,0,0,.07);
+  border: 1px solid #e8ecf0;
+}
+.info-card-icon {
+  font-size: 1.6rem;
+  margin-bottom: 10px;
+  display: block;
+}
+.info-card-title {
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--dime-teal);
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.info-card ul {
+  padding-left: 16px;
+  margin: 0;
+  font-size: .83rem;
+  color: #4a5a6a;
+  line-height: 1.7;
+}
+
+/* ── Pipeline ────────────────────────────────────────────────────────── */
+.pipeline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 20px 0 40px;
+}
+.pipe-step {
+  background: white;
+  border: 1px solid #d8e2ec;
+  border-radius: 10px;
+  padding: 14px 18px;
+  text-align: center;
+  flex: 1;
+  min-width: 120px;
+}
+.pipe-step-icon { font-size: 1.4rem; display: block; margin-bottom: 5px; }
+.pipe-step-label { font-size: .78rem; font-weight: 600; color: var(--dime-teal); }
+.pipe-step-sub   { font-size: .72rem; color: #8a9aaa; margin-top: 2px; }
+.pipe-arrow {
+  font-size: 1.2rem;
+  color: #c8d8e8;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+
+/* ── Author card ─────────────────────────────────────────────────────── */
+.author-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef3f8 100%);
+  border: 1px solid #dde6ef;
+  border-radius: var(--radius);
+  padding: 28px 30px;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 40px;
+}
+.author-avatar {
+  width: 56px; height: 56px;
+  background: linear-gradient(135deg, var(--dime-teal), var(--dime-blue));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+.author-name { font-size: 1rem; font-weight: 700; color: var(--dime-teal); margin: 0 0 2px; }
+.author-role { font-size: .82rem; color: #5a6a7a; margin: 0 0 10px; }
+.author-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.author-tag {
+  background: white;
+  border: 1px solid #ccd8e4;
+  border-radius: 14px;
+  padding: 2px 10px;
+  font-size: .74rem;
+  color: var(--dime-blue);
+  font-weight: 600;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+.portal-footer {
+  border-top: 1px solid #dde6ef;
+  padding: 24px 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: .8rem;
+  color: #8a9aaa;
+}
+.portal-footer strong { color: var(--dime-teal); }
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .hero-title { font-size: 1.6rem; }
+  .hero-banner { padding: 36px 22px 30px; }
+  .pipeline { flex-direction: column; align-items: stretch; }
+  .pipe-arrow { transform: rotate(90deg); text-align: center; }
+  .author-card { flex-direction: column; }
+}
 </style>
 
-<div class="card-grid">
 
-  <a class="card-link" href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/"
-     style="background: linear-gradient(135deg, #1a6b3a, #59A14F);" target="_blank">
-    <span class="badge badge-live">Interactivo</span>
-    <h3>📊 GRD · Grupos Relacionados de Diagnóstico</h3>
-    <p>Filtros dinámicos por año, mes y CACI · 10 tabs · Costos, ticket, rentabilidad,
-       epidemiología e histórico · Actualizado jul 2026</p>
+<!-- ══════════════════════════════════════════════════════════════════════════
+     HERO
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="hero-banner">
+  <div class="hero-eyebrow">DIME Clínica Neurocardiovascular · Epidemiología</div>
+  <h1 class="hero-title">Portal de Análisis<br>Clínico-Epidemiológico</h1>
+  <p class="hero-sub">
+    Plataforma de inteligencia de datos para el seguimiento de costos, rentabilidad,
+    calidad asistencial y desempeño clínico. Las herramientas disponibles aquí apoyan
+    la toma de decisiones del equipo directivo y los líderes de proceso de DIME.
+  </p>
+  <div class="hero-tags">
+    <span class="hero-tag">📊 Análisis GRD</span>
+    <span class="hero-tag">🛏️ Estancias (LOS)</span>
+    <span class="hero-tag">💀 Mortalidad Hospitalaria</span>
+    <span class="hero-tag">💊 PROA · Antibióticos</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     DASHBOARDS
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-label">Herramientas disponibles</div>
+<div class="section-title">Dashboards de análisis</div>
+<p class="section-sub">
+  Cada dashboard se actualiza con nuevos datos mensualmente. Los interactivos
+  corren en un servidor R y permiten filtrar, explorar y exportar resultados en tiempo real.
+</p>
+
+<div class="dash-grid">
+
+  <!-- GRD -->
+  <a class="dash-card accent-grd"
+     href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/"
+     target="_blank">
+    <div class="dash-card-header">
+      <span class="dash-card-icon">📊</span>
+      <span class="dash-card-badge badge-live">Interactivo</span>
+      <div class="dash-card-title">GRD · Grupos Relacionados de Diagnóstico</div>
+      <div class="dash-card-short">Costos · Ticket · Rentabilidad · Epidemiología</div>
+    </div>
+    <div class="dash-card-body">
+      <p class="dash-card-desc">
+        Asigna a cada paciente su costo real de atención y lo compara con el valor
+        facturado, agrupando los resultados por patología CACI. Permite identificar
+        qué grupos son rentables, en qué meses se concentran los costos y cómo
+        evolucionan los indicadores año a año.
+      </p>
+      <ul class="dash-card-features">
+        <li>Costo mediano por paciente (ticket) por CACI y mes</li>
+        <li>Rentabilidad y margen bruto mensual y anual</li>
+        <li>Comparativo histórico 2024–2026</li>
+        <li>Costos por unidad de negocio (estancia, cirugía, medicamentos…)</li>
+        <li>Pirámide poblacional y estancia hospitalaria por CACI</li>
+        <li>Explorador de datos con exportación a Excel</li>
+      </ul>
+    </div>
+    <div class="dash-card-footer">
+      <span class="dash-card-update">Actualizado jul 2026 · 10 pestañas</span>
+      <span class="dash-card-btn" style="background:#59A14F;">Abrir →</span>
+    </div>
   </a>
 
-  <a class="card-link" href="mortality_dashboard.html"
-     style="background: linear-gradient(135deg, #6C3483, #A569BD);">
-    <span class="badge badge-static">Dashboard estático</span>
-    <h3>💀 Mortalidad Hospitalaria</h3>
-    <p>Mortalidad ajustada al riesgo (RAMR) · Análisis por servicio y diagnóstico
-       · Tendencias · Indicadores institucionales</p>
+  <!-- LOS -->
+  <a class="dash-card accent-los"
+     href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/los-dime/"
+     target="_blank">
+    <div class="dash-card-header">
+      <span class="dash-card-icon">🛏️</span>
+      <span class="dash-card-badge badge-live">Interactivo</span>
+      <div class="dash-card-title">LOS · Estancia Hospitalaria</div>
+      <div class="dash-card-short">Larga estancia · Camas inactivas · Por servicio</div>
+    </div>
+    <div class="dash-card-body">
+      <p class="dash-card-desc">
+        La estancia hospitalaria es uno de los principales determinantes del costo
+        por episodio. Este dashboard identifica pacientes en larga estancia,
+        cuantifica las camas inactivas por servicio y desglosa los días de estancia
+        observados frente al estándar esperado por diagnóstico.
+      </p>
+      <ul class="dash-card-features">
+        <li>Distribución de estancias por servicio y CACI</li>
+        <li>Identificación automática de larga estancia (umbral configurable)</li>
+        <li>Camas inactivas: días perdidos y costo estimado asociado</li>
+        <li>Tendencias mensuales y comparativo anual</li>
+        <li>Análisis de outliers por paciente</li>
+      </ul>
+    </div>
+    <div class="dash-card-footer">
+      <span class="dash-card-update">Actualizado jul 2026 · 7 pestañas</span>
+      <span class="dash-card-btn" style="background:#2E86C1;">Abrir →</span>
+    </div>
   </a>
 
-  <a class="card-link" href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/"
-     style="background: linear-gradient(135deg, #784212, #CA6F1E);" target="_blank">
-    <span class="badge badge-live">Interactivo</span>
-    <h3>💊 PROA · Antibióticos</h3>
-    <p>Programa de Optimización de Antibióticos · Consumo de DDD · Microbiología
-       · Resistencia bacteriana · Análisis de adherencia</p>
+  <!-- Mortalidad -->
+  <a class="dash-card accent-mort" href="mortality_dashboard.html">
+    <div class="dash-card-header">
+      <span class="dash-card-icon">💀</span>
+      <span class="dash-card-badge badge-static">Dashboard estático</span>
+      <div class="dash-card-title">Mortalidad Hospitalaria</div>
+      <div class="dash-card-short">RAMR · Por servicio · Tendencias</div>
+    </div>
+    <div class="dash-card-body">
+      <p class="dash-card-desc">
+        Analiza la mortalidad hospitalaria ajustada al riesgo (RAMR), que corrige
+        la tasa cruda según la complejidad esperada de los pacientes atendidos.
+        Una RAMR inferior a 1,0 indica un desempeño mejor que el estándar esperado
+        para el perfil de pacientes de la institución.
+      </p>
+      <ul class="dash-card-features">
+        <li>Tasa de mortalidad cruda y ajustada por riesgo (RAMR)</li>
+        <li>Desglose por servicio de hospitalización y diagnóstico</li>
+        <li>Tendencia temporal de la mortalidad institucional</li>
+        <li>Indicadores comparables con benchmarks del sector</li>
+      </ul>
+    </div>
+    <div class="dash-card-footer">
+      <span class="dash-card-update">Generado con Quarto · HTML estático</span>
+      <span class="dash-card-btn" style="background:#A569BD;">Ver →</span>
+    </div>
   </a>
 
-  <a class="card-link" href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/los-dime/"
-     style="background: linear-gradient(135deg, #1B4F72, #2E86C1);" target="_blank">
-    <span class="badge badge-live">Interactivo</span>
-    <h3>🛏️ Estancias (LOS)</h3>
-    <p>Longitud de estancia hospitalaria · Larga estancia · Camas inactivas
-       · 7 tabs · Análisis por servicio y CACI</p>
+  <!-- PROA -->
+  <a class="dash-card accent-proa"
+     href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/"
+     target="_blank">
+    <div class="dash-card-header">
+      <span class="dash-card-icon">💊</span>
+      <span class="dash-card-badge badge-live">Interactivo</span>
+      <div class="dash-card-title">PROA · Antibióticos</div>
+      <div class="dash-card-short">DDD · Microbiología · Resistencia bacteriana</div>
+    </div>
+    <div class="dash-card-body">
+      <p class="dash-card-desc">
+        El Programa de Optimización de Antibióticos (PROA) monitorea el uso racional
+        de antimicrobianos medido en DDD (Dosis Diaria Definida por 100 camas-día),
+        detecta resistencias bacterianas emergentes y evalúa la adherencia a los
+        protocolos institucionales de prescripción.
+      </p>
+      <ul class="dash-card-features">
+        <li>Consumo de antibióticos en DDD / 100 camas-día</li>
+        <li>Perfil microbiológico institucional por servicio</li>
+        <li>Mapa de resistencia bacteriana (antibiograma agregado)</li>
+        <li>Adherencia a protocolos de prescripción empírica</li>
+        <li>Alertas de multirresistencia</li>
+      </ul>
+    </div>
+    <div class="dash-card-footer">
+      <span class="dash-card-update">Actualizado 2026 · Interactivo</span>
+      <span class="dash-card-btn" style="background:#CA6F1E;">Abrir →</span>
+    </div>
   </a>
 
 </div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     CACI
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="caci-section">
+  <div class="section-label">Clasificación institucional</div>
+  <div class="section-title">¿Qué es CACI?</div>
+  <p style="font-size:.92rem; color:#3a4a5a; line-height:1.7; max-width:700px; margin:0;">
+    <strong>CACI (Cardiopatías de Alta Complejidad Institucional)</strong> es la
+    clasificación propia de DIME que agrupa los ingresos hospitalarios según el
+    diagnóstico cardiovascular principal del paciente. Esta agrupación permite
+    comparar costos, rentabilidad y desempeño clínico entre grupos de patología
+    homogéneos, y es el eje de análisis transversal de todos los dashboards.
+    La jerarquía de clasificación aplica los diagnósticos de egreso en orden de
+    prioridad clínica: primero el diagnóstico principal, luego el secundario.
+  </p>
+  <div class="caci-grid">
+    <div class="caci-card" style="border-color:#E15759;">
+      <div class="caci-code" style="color:#E15759;">ICC</div>
+      <div class="caci-name">Insuficiencia Cardíaca Congestiva</div>
+    </div>
+    <div class="caci-card" style="border-color:#4E79A7;">
+      <div class="caci-code" style="color:#4E79A7;">ACV</div>
+      <div class="caci-name">Accidente Cerebrovascular</div>
+    </div>
+    <div class="caci-card" style="border-color:#F28E2B;">
+      <div class="caci-code" style="color:#F28E2B;">SCA</div>
+      <div class="caci-name">Síndrome Coronario Agudo</div>
+    </div>
+    <div class="caci-card" style="border-color:#76B7B2;">
+      <div class="caci-code" style="color:#76B7B2;">TEP</div>
+      <div class="caci-name">Tromboembolia Pulmonar</div>
+    </div>
+    <div class="caci-card" style="border-color:#59A14F;">
+      <div class="caci-code" style="color:#59A14F;">TxC</div>
+      <div class="caci-name">Trasplante Cardíaco</div>
+    </div>
+    <div class="caci-card" style="border-color:#B07AA1;">
+      <div class="caci-code" style="color:#B07AA1;">Otros CV</div>
+      <div class="caci-name">Otras cardiopatías cardiovasculares</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     CÓMO FUNCIONA
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-label">Metodología</div>
+<div class="section-title">¿Cómo se construyen los análisis?</div>
+<p class="section-sub">
+  Todos los dashboards siguen el mismo pipeline reproducible desde los datos fuente
+  hasta el resultado publicado.
+</p>
+
+<div class="pipeline">
+  <div class="pipe-step">
+    <span class="pipe-step-icon">🗄️</span>
+    <div class="pipe-step-label">Datos fuente</div>
+    <div class="pipe-step-sub">Sistema institucional</div>
+  </div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step">
+    <span class="pipe-step-icon">🔧</span>
+    <div class="pipe-step-label">Limpieza R</div>
+    <div class="pipe-step-sub">Validación y tipado</div>
+  </div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step">
+    <span class="pipe-step-icon">🏷️</span>
+    <div class="pipe-step-label">CACI</div>
+    <div class="pipe-step-sub">Clasificación clínica</div>
+  </div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step">
+    <span class="pipe-step-icon">📐</span>
+    <div class="pipe-step-label">Indicadores</div>
+    <div class="pipe-step-sub">Costos · margen · LOS</div>
+  </div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step">
+    <span class="pipe-step-icon">📊</span>
+    <div class="pipe-step-label">Dashboard</div>
+    <div class="pipe-step-sub">Shiny · Quarto</div>
+  </div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step">
+    <span class="pipe-step-icon">🌐</span>
+    <div class="pipe-step-label">Publicación</div>
+    <div class="pipe-step-sub">GitHub Pages</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     FUENTES Y METODOLOGÍA
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-label">Datos y fuentes</div>
+<div class="section-title">¿De dónde vienen los datos?</div>
+<p class="section-sub">
+  Los datos son de uso interno exclusivo y se obtienen de los sistemas de información
+  institucionales de DIME. No se publican datos individuales de pacientes.
+</p>
+
+<div class="info-grid">
+
+  <div class="info-card">
+    <span class="info-card-icon">🏥</span>
+    <div class="info-card-title">Ingresos y Egresos</div>
+    <ul>
+      <li>Base de datos de hospitalización</li>
+      <li>Fecha de ingreso y egreso</li>
+      <li>Diagnósticos EP, ES, IP (CIE-10)</li>
+      <li>Servicio de atención</li>
+      <li>Variables demográficas</li>
+    </ul>
+  </div>
+
+  <div class="info-card">
+    <span class="info-card-icon">💳</span>
+    <div class="info-card-title">Ventas y Facturación</div>
+    <ul>
+      <li>Detalle de cargos por CUPS</li>
+      <li>Valor tarifario por ítem</li>
+      <li>Departamento de cargue</li>
+      <li>Farmacia y medicamentos</li>
+      <li>Procedimientos e imágenes</li>
+    </ul>
+  </div>
+
+  <div class="info-card">
+    <span class="info-card-icon">📋</span>
+    <div class="info-card-title">Costos Institucionales</div>
+    <ul>
+      <li>Tabla de costos por CUPS (Planeación)</li>
+      <li>Costo real por ítem facturado</li>
+      <li>Actualización anual de tarifas</li>
+      <li>Diferenciación costo vs. venta</li>
+    </ul>
+  </div>
+
+  <div class="info-card">
+    <span class="info-card-icon">🦠</span>
+    <div class="info-card-title">Microbiología (PROA)</div>
+    <ul>
+      <li>Cultivos y antibiogramas</li>
+      <li>Consumo de antibióticos (farmacia)</li>
+      <li>DDD por 100 camas-día</li>
+      <li>Clasificación WHO AWaRe</li>
+    </ul>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EQUIPO
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-label">Responsable</div>
+<div class="section-title">Equipo de análisis</div>
+
+<div class="author-card">
+  <div class="author-avatar">👤</div>
+  <div>
+    <div class="author-name">Juan Sebastián Hurtado Zapata</div>
+    <div class="author-role">Líder de Epidemiología, Docencia e Investigación · DIME Clínica Neurocardiovascular</div>
+    <div class="author-tags">
+      <span class="author-tag">Epidemiología</span>
+      <span class="author-tag">Bioestadística</span>
+      <span class="author-tag">R · Quarto · Shiny</span>
+      <span class="author-tag">GRD / DRG</span>
+      <span class="author-tag">Calidad asistencial</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="portal-footer">
+  <span>
+    <strong>DIME Clínica Neurocardiovascular</strong> · Epidemiología, Docencia e Investigación
+  </span>
+  <span id="footer-date" style="color:#9aaabb;"></span>
+</div>
+
+<script>
+(function() {
+  var meses = ['enero','febrero','marzo','abril','mayo','junio',
+               'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var hoy = new Date();
+  var texto = 'Actualizado el ' + hoy.getDate() + ' de ' +
+              meses[hoy.getMonth()] + ' de ' + hoy.getFullYear();
+  var el = document.getElementById('footer-date');
+  if (el) el.textContent = texto;
+})();
+</script>
 ```
-
-## Dashboards interactivos
-
-Los dashboards interactivos requieren un servidor R. Están disponibles en **shinyapps.io** y pueden abrirse en cualquier navegador sin instalar nada:
-
-| Dashboard | Descripción | Enlace |
-|-----------|-------------|--------|
-| **GRD** | Costos · ticket · rentabilidad · epidemiología · 10 tabs | [Abrir GRD ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/) |
-| **LOS** | Estancias · Larga estancia · Inactivas · 8 tabs | [Abrir LOS ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/los-dime/) |
-| **PROA** | Antibióticos · DDD · Microbiología · Resistencia | [Abrir PROA ↗](https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/) |
-
-> **Nota:** Para publicar los dashboards interactivos, ejecuta `rsconnect::deployApp("shiny_grd")` desde R.
-
-## Acerca de este portal
-
-Este sitio es generado automáticamente desde el repositorio privado
-[`DRG_DIME_Clinica_Neurocardiovascular`](https://github.com/juanse0222/DRG_DIME_Clinica_Neurocardiovascular)
-en GitHub, usando **Quarto** y **R**.
-
-**Fuentes de datos:**
-
-- Ingresos y egresos (base de datos institucional)
-- Detalle de ventas (CUPS · Cargos · Farmacia)
-- Tablas de costos (Planeación)
-
-**Clasificación CACI (jerarquía clínica):**
-ICC → ACV → SCA → TEP → TxC → Otros CV
-
----
-
-*Informe generado el `r format(Sys.Date(), "%d de %B de %Y")`
-por Juan Sebastián Hurtado Zapata · Líder de Epidemiología, Docencia e Investigación*
