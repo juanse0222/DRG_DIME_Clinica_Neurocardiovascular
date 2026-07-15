@@ -531,30 +531,33 @@ title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
   </a>
 
   <!-- Mortalidad -->
-  <a class="dash-card accent-mort" href="mortality_dashboard.html">
+  <a class="dash-card accent-mort"
+     href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/mortalidad-dime/"
+     target="_blank">
     <div class="dash-card-header">
       <span class="dash-card-icon">💀</span>
-      <span class="dash-card-badge badge-static">Dashboard estático</span>
+      <span class="dash-card-badge badge-live">Interactivo</span>
       <div class="dash-card-title">Mortalidad Hospitalaria</div>
-      <div class="dash-card-short">RAMR · Por servicio · Tendencias</div>
+      <div class="dash-card-short">TMAR · Razón O/E · Tendencias GEE</div>
     </div>
     <div class="dash-card-body">
       <p class="dash-card-desc">
-        Analiza la mortalidad hospitalaria ajustada al riesgo (RAMR), que corrige
-        la tasa cruda según la complejidad esperada de los pacientes atendidos.
-        Una RAMR inferior a 1,0 indica un desempeño mejor que el estándar esperado
-        para el perfil de pacientes de la institución.
+        Analiza la mortalidad hospitalaria ajustada al riesgo (TMAR), calculada con
+        modelos GEE sobre 8 grupos diagnósticos (SCA, ACV isq., ACV hem., ICC, TEP,
+        válvulas, vascular e infección). Incluye la razón observado/esperado (O/E),
+        tendencias bimensuales con IC 95% y perfil de comorbilidades en fallecidos.
       </p>
       <ul class="dash-card-features">
-        <li>Tasa de mortalidad cruda y ajustada por riesgo (RAMR)</li>
-        <li>Desglose por servicio de hospitalización y diagnóstico</li>
-        <li>Tendencia temporal de la mortalidad institucional</li>
-        <li>Indicadores comparables con benchmarks del sector</li>
+        <li>TMAR y razón O/E por GRD, año y mes</li>
+        <li>Tendencias bimensuales con intervalos de confianza 95%</li>
+        <li>Comorbilidades Elixhauser en fallecidos (mapa de calor)</li>
+        <li>Distribución de edad y perfil demográfico por grupo</li>
+        <li>Mortalidad por departamento de hospitalización</li>
       </ul>
     </div>
     <div class="dash-card-footer">
-      <span class="dash-card-update">Generado con Quarto · HTML estático</span>
-      <span class="dash-card-btn" style="background:#A569BD;">Ver →</span>
+      <span class="dash-card-update">Actualizado jul 2026 · 5 pestañas</span>
+      <span class="dash-card-btn" style="background:#A569BD;">Abrir →</span>
     </div>
   </a>
 

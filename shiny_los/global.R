@@ -15,7 +15,11 @@ library(DT)
 library(zoo)
 library(janitor)
 
-Sys.setlocale("LC_TIME", "es_ES.UTF-8")
+tryCatch(
+  Sys.setlocale("LC_TIME", "es_ES.UTF-8"),
+  warning = function(w) NULL,
+  error   = function(e) NULL
+)
 
 # ── Paletas ────────────────────────────────────────────────────────────────────
 serv_colors <- c(
@@ -183,27 +187,54 @@ data_grd_base <- bind_rows(lapply(grd_files, function(f) {
   )
 
 # ── Costos: itemizados (ventas + costo + CACI) ────────────────────────────────
-cost_files <- list.files(data_dir,
-                          pattern = "data_costo_total_3_.*_II\\.rds",
-                          full.names = TRUE)
+# Smart loading: use compact pre-aggregated file when available (shinyapps.io),
+# fall back to full raw RDS files for local development.
+compact_cost_path <- file.path(data_dir, "los_cost_compact.rds")
 
-data_costo_base <- bind_rows(lapply(cost_files, function(f) {
-  rio::import(f) %>%
-    clean_names() %>%
-    mutate(across(everything(), as.character))   # harmonise types before bind
-})) %>%
-  rename_with(~ "caci",  any_of("caci_3")) %>%
-  rename_with(~ "costo", any_of("costo_2")) %>%
-  mutate(
-    venta          = suppressWarnings(as.numeric(gsub(",", "", valor_cargo_tarifario))),
-    costo          = suppressWarnings(as.numeric(costo)),
-    fecha_cargue_d = as.Date(fecha_cargue),
-    año            = as.integer(year(fecha_cargue_d)),
-    mes_num        = as.integer(month(fecha_cargue_d)),   # integer month for filtering
-    caci           = str_to_upper(caci),
-    cuenta         = as.character(cuenta),
-    dif_days       = suppressWarnings(as.numeric(dif_days))
-  )
+if (file.exists(compact_cost_path)) {
+  data_costo_base <- readRDS(compact_cost_path)
+  message("[LOS-App] Compact cost data loaded: ", nrow(data_costo_base), " rows (",
+          round(object.size(data_costo_base) / 1e6, 1), " MB)")
+} else {
+  cost_files <- list.files(data_dir,
+                            pattern = "data_costo_total_3_.*_II\\.rds",
+                            full.names = TRUE)
+  raw_cost <- bind_rows(lapply(cost_files, function(f) {
+    rio::import(f) %>%
+      clean_names() %>%
+      mutate(across(everything(), as.character))
+  }))
+
+  # Normalise caci / costo column names
+  if ("caci_3" %in% names(raw_cost) && "caci" %in% names(raw_cost)) {
+    raw_cost <- mutate(raw_cost, caci = coalesce(caci, caci_3)) %>% select(-caci_3)
+  } else if ("caci_3" %in% names(raw_cost)) {
+    raw_cost <- rename(raw_cost, caci = caci_3)
+  }
+  if ("costo_2" %in% names(raw_cost) && "costo" %in% names(raw_cost)) {
+    raw_cost <- mutate(raw_cost, costo = coalesce(costo, costo_2)) %>% select(-costo_2)
+  } else if ("costo_2" %in% names(raw_cost)) {
+    raw_cost <- rename(raw_cost, costo = costo_2)
+  }
+
+  data_costo_base <- raw_cost %>%
+    mutate(
+      venta          = suppressWarnings(as.numeric(gsub(",", ".", valor_cargo_tarifario))),
+      costo          = suppressWarnings(as.numeric(costo)),
+      fecha_cargue_d = as.Date(fecha_cargue),
+      año            = as.integer(year(fecha_cargue_d)),
+      mes_num        = as.integer(month(fecha_cargue_d)),
+      caci           = str_to_upper(caci),
+      cuenta         = as.character(cuenta),
+      dif_days       = suppressWarnings(as.numeric(dif_days)),
+      departamento_cargue = coalesce(departamento_cargue, "Otro")
+    ) %>%
+    group_by(cuenta, caci, dif_days, departamento_cargue, año, mes_num) %>%
+    summarise(costo = sum(costo, na.rm = TRUE),
+              venta = sum(venta, na.rm = TRUE),
+              .groups = "drop")
+  message("[LOS-App] Cost data built from raw files: ", nrow(data_costo_base), " rows")
+}
 
 # ── Join LOS censo × GRD (para agregar CACI y demografía al censo) ────────────
 grd_keys <- data_grd_base %>%
@@ -284,9 +315,10 @@ serv_choices     <- sort(unique(na.omit(data_los_full$estacion_2)))
 caci_choices_los <- sort(unique(na.omit(data_grd_base$caci)))
 ei_year_choices  <- sort(unique(na.omit(data_ei$año)), decreasing = TRUE)
 
-mes_labels  <- format(as.Date(paste0("2026-", 1:12, "-01")), "%B")
+meses_full  <- c("Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                 "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre")
 mes_choices <- c("Todos los meses" = "0",
-                 setNames(as.character(1:12), mes_labels))
+                 setNames(as.character(1:12), meses_full))
 
 # (shinydashboard skin handled via www/styles.css)
 

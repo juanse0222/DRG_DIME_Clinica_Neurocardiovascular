@@ -21,7 +21,8 @@ website:
       - text: "Inicio"
         href: index.qmd
       - text: "Mortalidad"
-        href: mortality_dashboard.html
+        href: https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/mortalidad-dime/
+        target: _blank
       - text: "GRD"
         href: https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/grd-dime/
         target: _blank
