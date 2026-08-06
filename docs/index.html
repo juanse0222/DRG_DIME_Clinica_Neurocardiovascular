@@ -44,8 +44,8 @@ ul.task-list li input[type="checkbox"] {
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="site_libs/bootstrap/bootstrap-06457a13a7a73d81d92b84c1a027c360.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
-<!-- Netlify Identity Widget -->
-<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<!-- GoTrue-js: Netlify Identity client (no modal dependency) -->
+<script src="https://unpkg.com/gotrue-js@0.9.29/dist/gotrue.js"></script>
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -95,7 +95,35 @@ ul.task-list li input[type="checkbox"] {
       Solo correos <strong>@dime.com.co</strong> están autorizados.<br>
       Si eres usuario nuevo, revisa tu correo institucional para la invitación.
     </div>
-    <button id="dime-login-btn" class="auth-btn">Iniciar sesión</button>
+    <!-- Section: Login -->
+    <div id="auth-section-login">
+      <input id="auth-email" class="auth-input" type="email" placeholder="Correo institucional" autocomplete="username">
+      <input id="auth-password" class="auth-input" type="password" placeholder="Contraseña" autocomplete="current-password">
+      <button id="dime-login-btn" class="auth-btn">Iniciar sesión</button>
+      <button id="auth-forgot-link" class="auth-link-btn">¿Olvidaste tu contraseña?</button>
+    </div>
+
+    <!-- Section: Set password (invite / recovery token) -->
+    <div id="auth-section-setpass" style="display:none">
+      <p style="color:rgba(255,255,255,.65);font-size:.85rem;margin:0 0 16px;line-height:1.55;">
+        Establece tu contraseña para activar tu cuenta.
+      </p>
+      <input id="auth-newpass" class="auth-input" type="password" placeholder="Nueva contraseña" autocomplete="new-password">
+      <input id="auth-newpass2" class="auth-input" type="password" placeholder="Confirmar contraseña" autocomplete="new-password">
+      <button id="auth-setpass-btn" class="auth-btn">Establecer contraseña</button>
+    </div>
+
+    <!-- Section: Forgot password -->
+    <div id="auth-section-forgot" style="display:none">
+      <p style="color:rgba(255,255,255,.65);font-size:.85rem;margin:0 0 16px;line-height:1.55;">
+        Ingresa tu correo y te enviaremos un enlace de recuperación.
+      </p>
+      <input id="auth-recovery-email" class="auth-input" type="email" placeholder="Correo institucional" autocomplete="username">
+      <button id="auth-send-recovery-btn" class="auth-btn">Enviar enlace</button>
+      <button id="auth-back-to-login" class="auth-link-btn">← Volver al inicio de sesión</button>
+    </div>
+
+    <div id="dime-auth-success" class="auth-success" style="display:none"></div>
     <div id="dime-auth-error" class="auth-error"></div>
     <p class="auth-footer-note">
       ¿Problemas para acceder?<br>
@@ -727,6 +755,44 @@ ul.task-list li input[type="checkbox"] {
   line-height: 1.5;
   display: none;
 }
+.auth-input {
+  width: 100%;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 10px;
+  color: white;
+  font-size: .9rem;
+  outline: none;
+  transition: border-color .2s, background .2s;
+  box-sizing: border-box;
+  display: block;
+}
+.auth-input::placeholder { color: rgba(255,255,255,.35); }
+.auth-input:focus { border-color: rgba(78,121,167,.7); background: rgba(255,255,255,.1); }
+.auth-link-btn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,.45);
+  font-size: .78rem;
+  cursor: pointer;
+  padding: 10px 0 0;
+  width: 100%;
+  text-align: center;
+  transition: color .15s;
+}
+.auth-link-btn:hover { color: rgba(255,255,255,.75); }
+.auth-success {
+  background: rgba(27,94,32,.25);
+  border: 1px solid rgba(76,175,80,.4);
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-size: .82rem;
+  color: #a5d6a7;
+  margin-top: 18px;
+  line-height: 1.5;
+}
 /* User pill in navbar */
 #dime-user-pill {
   display: none;
@@ -1172,92 +1238,207 @@ ul.task-list li input[type="checkbox"] {
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
-     NETLIFY IDENTITY — Auth gate
-     - Invite-only mode configured in Netlify dashboard
-     - Client-side domain check: @dime.com.co only
-     - Session persisted via Netlify Identity JWT in localStorage
+     GOTRUE AUTH — Invite-only gate (@dime.com.co)
+     - Uses GoTrue-js directly (no modal popup, no z-index conflict)
+     - Session persisted in localStorage via GoTrue
 ═══════════════════════════════════════════════════════════════════════════ -->
 <script>
 (function () {
   'use strict';
 
-  var overlay   = document.getElementById('dime-auth-overlay');
-  var loginBtn  = document.getElementById('dime-login-btn');
-  var errBox    = document.getElementById('dime-auth-error');
-  var userPill  = document.getElementById('dime-user-pill');
-  var userLabel = document.getElementById('dime-user-label');
-  var logoutBtn = document.getElementById('dime-logout-btn');
+  var overlay    = document.getElementById('dime-auth-overlay');
+  var errBox     = document.getElementById('dime-auth-error');
+  var successBox = document.getElementById('dime-auth-success');
+  var userPill   = document.getElementById('dime-user-pill');
+  var userLabel  = document.getElementById('dime-user-label');
+  var logoutBtn  = document.getElementById('dime-logout-btn');
 
-  /* ── helpers ─────────────────────────────────────────────────────────── */
+  /* ── GoTrue init ──────────────────────────────────────────────────────── */
+  var auth = new GoTrue({
+    APIUrl: window.location.origin + '/.netlify/identity',
+    audience: '',
+    setCookie: false
+  });
+
+  /* ── Helpers ──────────────────────────────────────────────────────────── */
   function isAllowed(email) {
     return typeof email === 'string' &&
            email.toLowerCase().endsWith('@dime.com.co');
   }
 
-  function showOverlay(msg) {
-    overlay.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    if (msg) {
-      errBox.textContent = msg;
-      errBox.style.display = 'block';
-    } else {
-      errBox.style.display = 'none';
-    }
+  function showError(msg) {
+    errBox.textContent       = msg;
+    errBox.style.display     = 'block';
+    successBox.style.display = 'none';
+  }
+
+  function showSuccess(msg) {
+    successBox.textContent   = msg;
+    successBox.style.display = 'block';
+    errBox.style.display     = 'none';
+  }
+
+  function clearMessages() {
+    errBox.style.display     = 'none';
+    successBox.style.display = 'none';
+  }
+
+  function showSection(id) {
+    ['auth-section-login', 'auth-section-setpass', 'auth-section-forgot'].forEach(function (s) {
+      document.getElementById(s).style.display = (s === id) ? 'block' : 'none';
+    });
+    clearMessages();
   }
 
   function hideOverlay(user) {
-    overlay.style.display = 'none';
+    overlay.style.display        = 'none';
     document.body.style.overflow = '';
-    errBox.style.display = 'none';
-    if (user) {
-      var name = (user.user_metadata && user.user_metadata.full_name)
-                 ? user.user_metadata.full_name
-                 : user.email;
-      userLabel.textContent = name;
-      userPill.style.display = 'flex';
+    var name = (user.user_metadata && user.user_metadata.full_name)
+               ? user.user_metadata.full_name
+               : user.email;
+    userLabel.textContent  = name;
+    userPill.style.display = 'flex';
+  }
+
+  /* ── URL token detection ──────────────────────────────────────────────── */
+  var hash   = window.location.hash.replace(/^#/, '');
+  var params = {};
+  hash.split('&').forEach(function (pair) {
+    var kv = pair.split('=');
+    if (kv[0]) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || '');
+  });
+  var inviteToken   = params['invite_token']   || '';
+  var recoveryToken = params['recovery_token'] || '';
+
+  /* ── Page load: decide which section to show ─────────────────────────── */
+  if (inviteToken || recoveryToken) {
+    showSection('auth-section-setpass');
+    overlay.style.display        = 'flex';
+    document.body.style.overflow = 'hidden';
+  } else {
+    var currentUser = auth.currentUser();
+    if (currentUser && isAllowed(currentUser.email)) {
+      hideOverlay(currentUser);
+    } else {
+      showSection('auth-section-login');
+      overlay.style.display        = 'flex';
+      document.body.style.overflow = 'hidden';
     }
   }
 
-  /* ── Netlify Identity events ──────────────────────────────────────────── */
-  netlifyIdentity.on('init', function (user) {
-    if (!user) {
-      showOverlay();
-    } else if (!isAllowed(user.email)) {
-      netlifyIdentity.logout();
-      showOverlay('❌ Solo correos @dime.com.co tienen acceso. Cierra sesión e intenta con tu correo institucional.');
-    } else {
-      hideOverlay(user);
-    }
+  /* ── Login ───────────────────────────────────────────────────────────── */
+  document.getElementById('dime-login-btn').addEventListener('click', function () {
+    var email = document.getElementById('auth-email').value.trim();
+    var pass  = document.getElementById('auth-password').value;
+    if (!email || !pass) { showError('⚠️ Ingresa tu correo y contraseña.'); return; }
+    if (!isAllowed(email)) { showError('❌ Solo correos @dime.com.co tienen acceso.'); return; }
+    var btn = this;
+    btn.textContent = 'Ingresando…';
+    btn.disabled    = true;
+    auth.login(email, pass, true)
+      .then(function (user) {
+        btn.textContent = 'Iniciar sesión';
+        btn.disabled    = false;
+        if (!isAllowed(user.email)) {
+          auth.logout();
+          showError('❌ Solo correos @dime.com.co tienen acceso.');
+          return;
+        }
+        hideOverlay(user);
+      })
+      .catch(function (err) {
+        btn.textContent = 'Iniciar sesión';
+        btn.disabled    = false;
+        var msg = (err.json && err.json.error_description)
+                  ? err.json.error_description
+                  : (err.message || 'Credenciales incorrectas.');
+        showError('❌ ' + msg);
+      });
   });
 
-  netlifyIdentity.on('login', function (user) {
-    netlifyIdentity.close();
-    if (!isAllowed(user.email)) {
-      netlifyIdentity.logout();
-      showOverlay('❌ Solo correos @dime.com.co tienen acceso.');
-    } else {
-      hideOverlay(user);
-    }
+  /* Enter key on login inputs */
+  ['auth-email', 'auth-password'].forEach(function (id) {
+    document.getElementById(id).addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') document.getElementById('dime-login-btn').click();
+    });
   });
 
-  netlifyIdentity.on('logout', function () {
-    userPill.style.display = 'none';
-    userLabel.textContent  = '';
-    showOverlay();
+  /* ── Forgot password ─────────────────────────────────────────────────── */
+  document.getElementById('auth-forgot-link').addEventListener('click', function () {
+    showSection('auth-section-forgot');
   });
 
-  netlifyIdentity.on('error', function (err) {
-    errBox.textContent = '⚠️ Error de autenticación: ' + (err.message || err);
-    errBox.style.display = 'block';
+  document.getElementById('auth-back-to-login').addEventListener('click', function () {
+    showSection('auth-section-login');
   });
 
-  /* ── Button events ───────────────────────────────────────────────────── */
-  loginBtn.addEventListener('click', function () {
-    netlifyIdentity.open('login');
+  document.getElementById('auth-send-recovery-btn').addEventListener('click', function () {
+    var email = document.getElementById('auth-recovery-email').value.trim();
+    if (!email) { showError('⚠️ Ingresa tu correo.'); return; }
+    if (!isAllowed(email)) { showError('❌ Solo correos @dime.com.co tienen acceso.'); return; }
+    var btn = this;
+    btn.textContent = 'Enviando…';
+    btn.disabled    = true;
+    auth.requestPasswordRecovery(email)
+      .then(function () {
+        btn.textContent = 'Enviar enlace';
+        btn.disabled    = false;
+        showSuccess('✅ Enlace enviado. Revisa tu correo institucional.');
+      })
+      .catch(function (err) {
+        btn.textContent = 'Enviar enlace';
+        btn.disabled    = false;
+        showError('❌ ' + (err.message || 'No se pudo enviar el enlace.'));
+      });
   });
 
+  document.getElementById('auth-recovery-email').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('auth-send-recovery-btn').click();
+  });
+
+  /* ── Set password (invite / recovery) ────────────────────────────────── */
+  document.getElementById('auth-setpass-btn').addEventListener('click', function () {
+    var p1  = document.getElementById('auth-newpass').value;
+    var p2  = document.getElementById('auth-newpass2').value;
+    if (!p1) { showError('⚠️ Ingresa una contraseña.'); return; }
+    if (p1 !== p2) { showError('⚠️ Las contraseñas no coinciden.'); return; }
+    if (p1.length < 8) { showError('⚠️ La contraseña debe tener al menos 8 caracteres.'); return; }
+    var btn = this;
+    btn.textContent = 'Guardando…';
+    btn.disabled    = true;
+    var promise = inviteToken
+      ? auth.acceptInvite(inviteToken, p1, true)
+      : auth.recover(recoveryToken, true).then(function (u) { return u.update({ password: p1 }); });
+    promise
+      .then(function (user) {
+        btn.textContent = 'Establecer contraseña';
+        btn.disabled    = false;
+        if (!isAllowed(user.email)) {
+          auth.logout();
+          showError('❌ Solo correos @dime.com.co tienen acceso.');
+          return;
+        }
+        window.history.replaceState(null, '', window.location.pathname);
+        hideOverlay(user);
+      })
+      .catch(function (err) {
+        btn.textContent = 'Establecer contraseña';
+        btn.disabled    = false;
+        showError('❌ ' + (err.message || 'No se pudo establecer la contraseña.'));
+      });
+  });
+
+  /* ── Logout ──────────────────────────────────────────────────────────── */
   logoutBtn.addEventListener('click', function () {
-    netlifyIdentity.logout();
+    auth.logout()
+      .then(function () {
+        userPill.style.display = 'none';
+        userLabel.textContent  = '';
+        showSection('auth-section-login');
+        overlay.style.display        = 'flex';
+        document.body.style.overflow = 'hidden';
+      })
+      .catch(function (err) { console.error('Logout error', err); });
   });
 })();
 </script>
