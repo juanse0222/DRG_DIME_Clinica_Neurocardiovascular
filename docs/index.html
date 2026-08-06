@@ -101,6 +101,7 @@ ul.task-list li input[type="checkbox"] {
       <input id="auth-password" class="auth-input" type="password" placeholder="Contraseña" autocomplete="current-password">
       <button id="dime-login-btn" class="auth-btn">Iniciar sesión</button>
       <button id="auth-forgot-link" class="auth-link-btn">¿Olvidaste tu contraseña?</button>
+      <button id="auth-activate-link" class="auth-link-btn" style="margin-top:4px;color:rgba(126,184,247,.55);">¿Eres usuario nuevo? Activar cuenta</button>
     </div>
 
     <!-- Section: Set password (invite / recovery token) -->
@@ -111,6 +112,18 @@ ul.task-list li input[type="checkbox"] {
       <input id="auth-newpass" class="auth-input" type="password" placeholder="Nueva contraseña" autocomplete="new-password">
       <input id="auth-newpass2" class="auth-input" type="password" placeholder="Confirmar contraseña" autocomplete="new-password">
       <button id="auth-setpass-btn" class="auth-btn">Establecer contraseña</button>
+    </div>
+
+    <!-- Section: Activate account (manual token entry fallback) -->
+    <div id="auth-section-activate" style="display:none">
+      <p style="color:rgba(255,255,255,.65);font-size:.85rem;margin:0 0 16px;line-height:1.55;">
+        Copia el enlace de activación de tu correo de invitación y pégalo aquí.
+      </p>
+      <input id="auth-invite-url" class="auth-input" type="text" placeholder="Pega aquí el enlace de invitación" autocomplete="off" style="font-size:.78rem;">
+      <input id="auth-act-pass" class="auth-input" type="password" placeholder="Nueva contraseña" autocomplete="new-password">
+      <input id="auth-act-pass2" class="auth-input" type="password" placeholder="Confirmar contraseña" autocomplete="new-password">
+      <button id="auth-activate-btn" class="auth-btn">Activar cuenta</button>
+      <button id="auth-back-from-activate" class="auth-link-btn">← Volver al inicio de sesión</button>
     </div>
 
     <!-- Section: Forgot password -->
@@ -1284,7 +1297,7 @@ ul.task-list li input[type="checkbox"] {
   }
 
   function showSection(id) {
-    ['auth-section-login', 'auth-section-setpass', 'auth-section-forgot'].forEach(function (s) {
+    ['auth-section-login', 'auth-section-setpass', 'auth-section-activate', 'auth-section-forgot'].forEach(function (s) {
       document.getElementById(s).style.display = (s === id) ? 'block' : 'none';
     });
     clearMessages();
@@ -1361,6 +1374,46 @@ ul.task-list li input[type="checkbox"] {
     document.getElementById(id).addEventListener('keydown', function (e) {
       if (e.key === 'Enter') document.getElementById('dime-login-btn').click();
     });
+  });
+
+  /* ── Activate account (manual token entry) ───────────────────────────── */
+  document.getElementById('auth-activate-link').addEventListener('click', function () {
+    showSection('auth-section-activate');
+  });
+  document.getElementById('auth-back-from-activate').addEventListener('click', function () {
+    showSection('auth-section-login');
+  });
+  document.getElementById('auth-activate-btn').addEventListener('click', function () {
+    var rawUrl = document.getElementById('auth-invite-url').value.trim();
+    var p1     = document.getElementById('auth-act-pass').value;
+    var p2     = document.getElementById('auth-act-pass2').value;
+    if (!rawUrl) { showError('⚠️ Pega el enlace de invitación.'); return; }
+    if (!p1) { showError('⚠️ Ingresa una contraseña.'); return; }
+    if (p1 !== p2) { showError('⚠️ Las contraseñas no coinciden.'); return; }
+    if (p1.length < 8) { showError('⚠️ La contraseña debe tener al menos 8 caracteres.'); return; }
+    /* Extract token from pasted URL or raw token string */
+    var tokenMatch = rawUrl.match(/[?&#]invite_token=([^&\s]+)/);
+    var token = tokenMatch ? tokenMatch[1] : rawUrl.replace(/^invite_token=/, '').trim();
+    if (!token) { showError('⚠️ No se encontró el código de invitación en el enlace.'); return; }
+    var btn = this;
+    btn.textContent = 'Activando…';
+    btn.disabled    = true;
+    auth.acceptInvite(token, p1, true)
+      .then(function (user) {
+        btn.textContent = 'Activar cuenta';
+        btn.disabled    = false;
+        if (!isAllowed(user.email)) {
+          auth.logout();
+          showError('❌ Solo correos @dime.com.co tienen acceso.');
+          return;
+        }
+        hideOverlay(user);
+      })
+      .catch(function (err) {
+        btn.textContent = 'Activar cuenta';
+        btn.disabled    = false;
+        showError('❌ ' + (err.message || 'Código de invitación inválido o expirado.'));
+      });
   });
 
   /* ── Forgot password ─────────────────────────────────────────────────── */
