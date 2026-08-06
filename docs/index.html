@@ -589,15 +589,17 @@ ul.task-list li input[type="checkbox"] {
 
 /* ── Full-width layout overrides ─────────────────────────────────────── */
 .quarto-container, #quarto-content, .page-columns,
-#quarto-document-content { max-width: 100% !important; width: 100% !important; }
-main.content { max-width: 100% !important; padding-left: 56px !important; padding-right: 56px !important; }
+.page-rows-contents, #quarto-document-content,
+.page-layout-article { max-width: 100% !important; width: 100% !important; }
+main.content { max-width: 100% !important; width: 100% !important;
+  padding-left: 48px !important; padding-right: 48px !important; }
 .quarto-title-block { display: none !important; }
 #quarto-margin-sidebar { display: none !important; }
 /* ── Hero centrado ───────────────────────────────────────────────────── */
-.hero-eyebrow { text-align: center; }
-.hero-title   { text-align: center; }
-.hero-sub     { text-align: center; max-width: 760px; margin-left: auto; margin-right: auto; }
-.hero-tags    { justify-content: center; }
+body .hero-eyebrow { text-align: center !important; }
+body .hero-title   { text-align: center !important; }
+body .hero-sub     { text-align: center !important; max-width: 760px; margin-left: auto !important; margin-right: auto !important; }
+body .hero-tags    { justify-content: center !important; }
 
 /* ── KPI strip ───────────────────────────────────────────────────────── */
 .kpi-strip {
@@ -641,12 +643,12 @@ main.content { max-width: 100% !important; padding-left: 56px !important; paddin
 }
 .kpi-sub { font-size: .74rem; color: #9aabb8; line-height: 1.35; }
 .kpi-chip {
-  position: absolute;
-  top: 14px; right: 14px;
+  display: inline-block;
   font-size: .66rem;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 8px;
+  margin-top: 8px;
 }
 .chip-ok   { background: rgba(46,125,50,.1);  color: #2e7d32; }
 .chip-warn { background: rgba(230,81,0,.1);   color: #bf360c; }
@@ -689,7 +691,7 @@ main.content { max-width: 100% !important; padding-left: 56px !important; paddin
   display: flex; align-items: center; padding: 8px 18px;
   border-bottom: 1px solid #edf0f4; background: #f7f9fb;
 }
-.egreso-header-spc { min-width: 160px; }
+.egreso-header-spc { min-width: 140px; flex-shrink: 0; }
 .egreso-header-cols { display: flex; flex: 1; }
 .egreso-header-lbl {
   flex: 1; text-align: center; font-size: .65rem; font-weight: 700;
@@ -706,7 +708,7 @@ main.content { max-width: 100% !important; padding-left: 56px !important; paddin
 .egreso-svc-total { background: #f0f4f8 !important; font-weight: 700; }
 .egreso-svc-name {
   display: flex; align-items: center; gap: 9px;
-  min-width: 160px; font-size: .82rem; font-weight: 700; color: #1a2a3a;
+  min-width: 140px; flex-shrink: 0; font-size: .82rem; font-weight: 700; color: #1a2a3a;
 }
 .egreso-svc-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .egreso-metrics { display: flex; flex: 1; }
@@ -1050,26 +1052,22 @@ function set(id, val) { var el = document.getElementById(id); if (el) el.textCon
   <div class="kpi-card" style="--kpi-color:#4E79A7;">
     <div class="kpi-label">Egresos · Hospitalización</div>
     <div class="kpi-value" id="kv-egresos-mes">—</div>
-    <div class="kpi-sub">Último mes · <span id="kpi-mes1"></span></div>
-    <span class="kpi-chip chip-info">Hospitalizado</span>
+    <div class="kpi-sub">Último mes · <span id="kpi-mes1"></span><br><span class="kpi-chip chip-info">Hospitalización</span></div>
   </div>
   <div class="kpi-card" style="--kpi-color:#59A14F;">
     <div class="kpi-label">Atenciones ambulatorias</div>
     <div class="kpi-value" id="kv-amb-mes">—</div>
-    <div class="kpi-sub">Consultas + procedimientos</div>
-    <span class="kpi-chip chip-ok">Ambulatorio</span>
+    <div class="kpi-sub">Consultas + procedimientos<br><span class="kpi-chip chip-ok">Ambulatorio</span></div>
   </div>
   <div class="kpi-card" style="--kpi-color:#A569BD;">
     <div class="kpi-label">Fallecidos · Último mes</div>
     <div class="kpi-value" id="kv-fallecidos">—</div>
-    <div class="kpi-sub">Mortalidad hospitalaria</div>
-    <span class="kpi-chip chip-info">Vigilancia</span>
+    <div class="kpi-sub">Mortalidad hospitalaria<br><span class="kpi-chip chip-info">Vigilancia</span></div>
   </div>
   <div class="kpi-card" style="--kpi-color:#2e7d32;">
     <div class="kpi-label">TMAR · 2026</div>
     <div class="kpi-value" id="kv-tmar">—</div>
-    <div class="kpi-sub">Referencia = 100 · Ajustado riesgo</div>
-    <span class="kpi-chip chip-ok">↓ Bajo ref.</span>
+    <div class="kpi-sub">Referencia = 100 · Ajustado riesgo<br><span class="kpi-chip chip-ok">↓ Bajo referencia</span></div>
   </div>
 </div>
 
