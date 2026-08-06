@@ -44,6 +44,8 @@ ul.task-list li input[type="checkbox"] {
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="site_libs/bootstrap/bootstrap-06457a13a7a73d81d92b84c1a027c360.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<!-- Netlify Identity Widget -->
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -76,6 +78,31 @@ ul.task-list li input[type="checkbox"] {
 </head>
 
 <body class="nav-fixed quarto-light">
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     AUTH OVERLAY — shown until Netlify Identity confirms a valid session
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="dime-auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <img src="./images/DIME_logo.png" alt="DIME Clínica Neurocardiovascular">
+    </div>
+    <div class="auth-title">Portal de Análisis · DIME</div>
+    <div class="auth-subtitle">Epidemiología &nbsp;·&nbsp; Docencia &nbsp;·&nbsp; Investigación</div>
+    <div class="auth-divider"></div>
+    <div class="auth-notice">
+      🔒 Acceso restringido al personal de DIME.<br>
+      Solo correos <strong>@dime.com.co</strong> están autorizados.<br>
+      Si eres usuario nuevo, revisa tu correo institucional para la invitación.
+    </div>
+    <button id="dime-login-btn" class="auth-btn">Iniciar sesión</button>
+    <div id="dime-auth-error" class="auth-error"></div>
+    <p class="auth-footer-note">
+      ¿Problemas para acceder?<br>
+      Escribe a <a href="mailto:juansehurtado@dime.com.co">juansehurtado@dime.com.co</a>
+    </p>
+  </div>
+</div>
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top">
@@ -115,11 +142,18 @@ ul.task-list li input[type="checkbox"] {
   </li>  
 </ul>
             <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item d-flex align-items-center" style="margin-right:10px;">
+    <div id="dime-user-pill">
+      <span class="user-dot"></span>
+      <span id="dime-user-label"></span>
+      <button id="dime-logout-btn" title="Cerrar sesión">Salir</button>
+    </div>
+  </li>
   <li class="nav-item compact">
     <a class="nav-link" href="https://github.com/juanse0222/DRG_DIME_Clinica_Neurocardiovascular"> <i class="bi bi-github" role="img">
-</i> 
+</i>
 <span class="menu-text"></span></a>
-  </li>  
+  </li>
 </ul>
           </div> <!-- /navcollapse -->
             <div class="quarto-navbar-tools">
@@ -585,6 +619,151 @@ ul.task-list li input[type="checkbox"] {
   .pipe-arrow { transform: rotate(90deg); text-align: center; }
   .author-card { flex-direction: column; }
 }
+
+/* ── Auth overlay ────────────────────────────────────────────────────── */
+#dime-auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: linear-gradient(135deg, #040d18 0%, #0a1628 30%, #0d1f2d 60%, #122840 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+#dime-auth-overlay::before {
+  content: "";
+  position: fixed;
+  top: -120px; right: -120px;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(21,101,192,.18) 0%, transparent 65%);
+  pointer-events: none;
+}
+#dime-auth-overlay::after {
+  content: "";
+  position: fixed;
+  bottom: -100px; left: -100px;
+  width: 420px; height: 420px;
+  background: radial-gradient(circle, rgba(26,107,58,.12) 0%, transparent 65%);
+  pointer-events: none;
+}
+.auth-card {
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 22px;
+  padding: 48px 42px 40px;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 32px 96px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+  position: relative;
+  z-index: 1;
+}
+.auth-logo { margin-bottom: 6px; }
+.auth-logo img { height: 52px; filter: brightness(1.15); }
+.auth-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: white;
+  margin: 12px 0 4px;
+  letter-spacing: -.01em;
+}
+.auth-subtitle {
+  font-size: .75rem;
+  color: rgba(255,255,255,.4);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 30px;
+}
+.auth-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
+  margin: 0 0 28px;
+}
+.auth-notice {
+  background: rgba(78,121,167,.15);
+  border: 1px solid rgba(78,121,167,.3);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: .84rem;
+  color: rgba(255,255,255,.78);
+  line-height: 1.65;
+  margin: 0 0 26px;
+}
+.auth-notice strong { color: #7eb8f7; }
+.auth-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: .96rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: .02em;
+  transition: opacity .15s, transform .12s, box-shadow .15s;
+  box-shadow: 0 4px 18px rgba(21,101,192,.4);
+}
+.auth-btn:hover { opacity: .92; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(21,101,192,.5); }
+.auth-btn:active { transform: translateY(0); }
+.auth-footer-note {
+  font-size: .75rem;
+  color: rgba(255,255,255,.3);
+  margin: 20px 0 0;
+  line-height: 1.55;
+}
+.auth-error {
+  background: rgba(211,47,47,.18);
+  border: 1px solid rgba(211,47,47,.4);
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-size: .82rem;
+  color: #ff8a80;
+  margin-top: 18px;
+  line-height: 1.5;
+  display: none;
+}
+/* User pill in navbar */
+#dime-user-pill {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 20px;
+  padding: 4px 6px 4px 12px;
+  font-size: .78rem;
+  color: rgba(255,255,255,.85);
+  white-space: nowrap;
+}
+#dime-user-pill .user-dot {
+  width: 7px; height: 7px;
+  background: #4caf50;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px rgba(76,175,80,.7);
+}
+#dime-user-label { overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+#dime-logout-btn {
+  background: rgba(255,255,255,.13);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 12px;
+  color: rgba(255,255,255,.75);
+  font-size: .7rem;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: background .15s;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+#dime-logout-btn:hover { background: rgba(255,255,255,.22); color: white; }
+@media (max-width: 640px) {
+  .auth-card { padding: 36px 24px 30px; }
+}
 </style>
 
 
@@ -989,6 +1168,97 @@ ul.task-list li input[type="checkbox"] {
               meses[hoy.getMonth()] + ' de ' + hoy.getFullYear();
   var el = document.getElementById('footer-date');
   if (el) el.textContent = texto;
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     NETLIFY IDENTITY — Auth gate
+     - Invite-only mode configured in Netlify dashboard
+     - Client-side domain check: @dime.com.co only
+     - Session persisted via Netlify Identity JWT in localStorage
+═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+
+  var overlay   = document.getElementById('dime-auth-overlay');
+  var loginBtn  = document.getElementById('dime-login-btn');
+  var errBox    = document.getElementById('dime-auth-error');
+  var userPill  = document.getElementById('dime-user-pill');
+  var userLabel = document.getElementById('dime-user-label');
+  var logoutBtn = document.getElementById('dime-logout-btn');
+
+  /* ── helpers ─────────────────────────────────────────────────────────── */
+  function isAllowed(email) {
+    return typeof email === 'string' &&
+           email.toLowerCase().endsWith('@dime.com.co');
+  }
+
+  function showOverlay(msg) {
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    if (msg) {
+      errBox.textContent = msg;
+      errBox.style.display = 'block';
+    } else {
+      errBox.style.display = 'none';
+    }
+  }
+
+  function hideOverlay(user) {
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+    errBox.style.display = 'none';
+    if (user) {
+      var name = (user.user_metadata && user.user_metadata.full_name)
+                 ? user.user_metadata.full_name
+                 : user.email;
+      userLabel.textContent = name;
+      userPill.style.display = 'flex';
+    }
+  }
+
+  /* ── Netlify Identity events ──────────────────────────────────────────── */
+  netlifyIdentity.on('init', function (user) {
+    if (!user) {
+      showOverlay();
+    } else if (!isAllowed(user.email)) {
+      netlifyIdentity.logout();
+      showOverlay('❌ Solo correos @dime.com.co tienen acceso. Cierra sesión e intenta con tu correo institucional.');
+    } else {
+      hideOverlay(user);
+    }
+  });
+
+  netlifyIdentity.on('login', function (user) {
+    netlifyIdentity.close();
+    if (!isAllowed(user.email)) {
+      netlifyIdentity.logout();
+      showOverlay('❌ Solo correos @dime.com.co tienen acceso.');
+    } else {
+      hideOverlay(user);
+    }
+  });
+
+  netlifyIdentity.on('logout', function () {
+    userPill.style.display = 'none';
+    userLabel.textContent  = '';
+    showOverlay();
+  });
+
+  netlifyIdentity.on('error', function (err) {
+    errBox.textContent = '⚠️ Error de autenticación: ' + (err.message || err);
+    errBox.style.display = 'block';
+  });
+
+  /* ── Button events ───────────────────────────────────────────────────── */
+  loginBtn.addEventListener('click', function () {
+    netlifyIdentity.open('login');
+  });
+
+  logoutBtn.addEventListener('click', function () {
+    netlifyIdentity.logout();
+  });
 })();
 </script>
 
