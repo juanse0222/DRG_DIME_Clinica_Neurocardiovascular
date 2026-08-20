@@ -1,0 +1,24 @@
+# Archivos de trabajo que NO deben subir a shinyapps.io.
+# La app no los lee; sólo inflan el bundle y publican material interno.
+#
+# OJO con el formato: .rscignore NO admite comodines (data/*.rds) ni barra
+# final (supplies/). Cada línea es un nombre de archivo o carpeta exacto,
+# relativo a la carpeta de la app. Con comodín se ignora la línea en silencio.
+
+# Insumos y presentaciones internas (PPTX de comité, KPI, censo crudo)
+supplies
+
+# Configuración local de herramientas
+.claude
+
+# Cost RDS crudos: global.R:334 prefiere data/los_cost_compact.rds cuando existe
+data/data_costo_total_3_2025_II.rds
+data/data_costo_total_3_2026_II.rds
+
+# Censo crudo: sólo sirve para reconstruir data/data_los_processed.rds, que ya
+# se despliega procesado. Sin él, global.R deja el caché como válido y el
+# contenedor no rehace ~30 s de censo en cada arranque en frío.
+data/data_cense_2017_2026.rds
+
+# Scripts de construcción — se corren en local, no en el servidor
+prep_data.R
