@@ -14,8 +14,14 @@ library(rio)
 library(reactable)
 library(plotly)
 library(DT)
+library(leaflet)
+library(sf)
 
-Sys.setlocale("LC_TIME", "es_ES.UTF-8")
+tryCatch(
+  Sys.setlocale("LC_TIME", "es_ES.UTF-8"),
+  warning = function(w) NULL,
+  error   = function(e) NULL
+)
 
 # ── Paleta y etiquetas CACI ───────────────────────────────────────────────────
 # Jerarquía clínica: ICC > ACV > SCA > TEP > TxC > Otros CV
@@ -41,13 +47,6 @@ caci_colors <- c(
   TEP        = "#76B7B2",
   TxC        = "#59A14F",
   `Otros CV` = "#B07AA1"
-)
-
-# Paleta de años para comparativos históricos
-year_colors <- c(
-  "2024" = "#C0392B",
-  "2025" = "#E67E22",
-  "2026" = "#2980B9"
 )
 
 # Abreviaturas de meses en español y helper para convertir mes entero → factor
@@ -104,61 +103,22 @@ safe_pct <- function(num, den) {
   dplyr::if_else(!is.na(den) & den > 0, round(num / den * 100, 1), NA_real_)
 }
 
-# ── Carga de datos procesados ─────────────────────────────────────────────────
-# Busca en data/ del proyecto (desarrollo) o shiny_grd/data/ (deploy)
-resolve_data_dir <- function() {
-  local_dir <- file.path(getwd(), "data")
-  if (dir.exists(local_dir) &&
-      length(list.files(local_dir, pattern = "data_costo_total_3")) > 0)
-    return(local_dir)
-
-  if (requireNamespace("here", quietly = TRUE)) {
-    proj_dir <- here::here("data")
-    if (dir.exists(proj_dir) &&
-        length(list.files(proj_dir, pattern = "data_costo_total_3")) > 0)
-      return(proj_dir)
-  }
-
-  stop("No se encontró data/. Copia los archivos RDS a shiny_grd/data/ antes de deployar.")
+# ── Localizar directorio de datos ────────────────────────────────────────────
+# Acepta shiny_grd/data/ (desarrollo desde raíz del proyecto) o data/ (dentro
+# de shiny_grd/ al correr localmente o en shinyapps.io).
+data_dir <- {
+  candidates <- c(
+    file.path(getwd(), "data"),
+    if (requireNamespace("here", quietly = TRUE)) here::here("data") else character(0)
+  )
+  found <- Filter(dir.exists, candidates)
+  if (length(found) == 0) stop("[GRD-App] No se encontró el directorio data/")
+  found[[1]]
 }
 
-data_dir <- resolve_data_dir()
-
-cost_files <- list.files(data_dir, pattern = "data_costo_total_3_.*_II\\.rds",
-                         full.names = TRUE)
-grd_files  <- list.files(data_dir, pattern = "data_grd_2_.*_II\\.(rds|rda)",
-                         full.names = TRUE)
-
-message(sprintf("[GRD-App] Cargando %d archivo(s) de costos y %d de admisiones...",
-                length(cost_files), length(grd_files)))
-
-# Las columnas cambian de tipo entre el RDS 2025 y 2026 (Date vs POSIXct,
-# character vs integer, etc.). Se normalizan antes de unir con bind_rows.
-safe_import <- function(f) {
-  df <- rio::import(f)
-  # Fechas: forzar a Date (funciona tanto para Date como POSIXct)
-  for (col in c("fecha_cargue", "fecha_registro", "fecha_ingreso", "fecha_de_egreso")) {
-    if (col %in% names(df)) df[[col]] <- as.Date(df[[col]])
-  }
-  # Numéricas: algunas vienen como character o factor en ciertos archivos
-  for (col in c("edad", "año")) {
-    if (col %in% names(df))
-      df[[col]] <- suppressWarnings(as.numeric(as.character(df[[col]])))
-  }
-  # Texto: algunas vienen como integer
-  for (col in c("transaccion", "mes_cargue", "mes", "ingreso", "cod_cargo")) {
-    if (col %in% names(df)) df[[col]] <- as.character(df[[col]])
-  }
-  # Factores ordenados con niveles distintos entre archivos → character
-  ordered_cols <- names(df)[sapply(df, is.ordered)]
-  for (col in ordered_cols) df[[col]] <- as.character(df[[col]])
-  df
-}
-
+# ── Importador GRD (siempre se usa, dataset pequeño) ─────────────────────────
 safe_import_grd <- function(f) {
   df <- rio::import(f) %>% janitor::clean_names()
-  # Normalize CACI to a single 'caci' column before binding (avoids collision
-  # when 2025 has 'caci'+'caci_3' and 2026 has 'caci_3'+'caci_final')
   if ("caci_3" %in% names(df) && "caci" %in% names(df)) {
     df$caci <- dplyr::coalesce(df$caci_3, df$caci)
   } else if ("caci_3" %in% names(df)) {
@@ -167,98 +127,248 @@ safe_import_grd <- function(f) {
     df$caci <- df$caci_final
   }
   df <- df %>% select(-any_of(c("caci_3", "caci_2", "caci_final", "mes_caci")))
-  # Type normalization
-  for (col in c("fecha_ingreso", "fecha_de_egreso")) {
+  for (col in c("fecha_ingreso", "fecha_de_egreso"))
     if (col %in% names(df)) df[[col]] <- as.Date(df[[col]])
-  }
-  for (col in c("edad", "estancia_horas", "valor_factura", "total_cuenta")) {
+  for (col in c("edad", "estancia_horas", "valor_factura", "total_cuenta"))
     if (col %in% names(df))
       df[[col]] <- suppressWarnings(as.numeric(as.character(df[[col]])))
-  }
-  # Ordered factors with different levels between files → character
   ordered_cols <- names(df)[sapply(df, is.ordered)]
   for (col in ordered_cols) df[[col]] <- as.character(df[[col]])
   df
 }
 
-data_costo_raw <- bind_rows(lapply(cost_files, safe_import))
-data_grd_raw   <- bind_rows(lapply(grd_files,  safe_import_grd))
-
-# ── Estandarización de columnas ───────────────────────────────────────────────
-prep_costo <- function(df) {
-  # clean_names translitea ñ→n: "año" pasa a "ano". Lo guardamos antes de mutar.
-  df %>%
-    janitor::clean_names() %>%
-    rename_with(~ "caci",  any_of(c("caci_3", "caci"))) %>%
-    rename_with(~ "costo", any_of(c("costo_2", "costo"))) %>%
-    mutate(
-      fecha_cargue = as.Date(fecha_cargue),
-      venta  = readr::parse_number(
-        as.character(valor_cargo_tarifario),
-        locale = readr::locale(grouping_mark = ",", decimal_mark = ".")
-      ),
-      costo  = as.numeric(costo),
-      # 'año' en los RDS = año de ingreso del paciente (no de fecha_cargue).
-      # Después de clean_names queda como 'ano'; si es NA usamos fecha_cargue.
-      año = as.integer(dplyr::coalesce(
-        suppressWarnings(as.numeric(ano)),
-        year(fecha_cargue)
-      )),
-      mes_cargue = as.integer(month(fecha_cargue)),
-      caci   = recode_caci(caci)
-    ) %>%
-    filter(año >= 2024L, !is.na(año))
-}
-
 prep_grd <- function(df) {
-  # clean_names() y normalización de caci ya se hicieron en safe_import_grd
   df %>%
     mutate(
-      fecha_ingreso    = as.Date(fecha_ingreso),
-      fecha_de_egreso  = as.Date(fecha_de_egreso),
+      fecha_ingreso   = as.Date(fecha_ingreso),
+      fecha_de_egreso = as.Date(fecha_de_egreso),
       caci = recode_caci(caci),
       año  = as.integer(year(coalesce(fecha_ingreso, fecha_de_egreso)))
     ) %>%
     filter(año >= 2024L, !is.na(año))
 }
 
-data_costo_base <- prep_costo(data_costo_raw)
-data_grd_base   <- prep_grd(data_grd_raw)
+grd_files     <- list.files(data_dir, pattern = "data_grd_2_.*_II\\.(rds|rda)", full.names = TRUE)
+data_grd_raw  <- bind_rows(lapply(grd_files, safe_import_grd))
+data_grd_base <- prep_grd(data_grd_raw)
+rm(data_grd_raw)
 
-# ── Pre-agregación por paciente × CACI × mes (50× más pequeño que el detalle) ─
-# Todos los reactivos de ticket, histórico y anual filtran desde aquí,
-# evitando que el servidor procese datos de cargo individuales en cada sesión.
-pte_base <- data_costo_base %>%
-  filter(!is.na(caci), !is.na(identificacion)) %>%
-  group_by(identificacion, caci, año, mes_cargue) %>%
-  summarise(
-    costo = sum(costo, na.rm = TRUE),
-    venta = sum(venta, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  mutate(mes_nombre = mes_factor(mes_cargue))
+# ── Carga de costos: pre-agregada (deploy) o completa (desarrollo local) ──────
+#
+# En shinyapps.io solo se despliegan los tres archivos compactos generados por
+# prep_data.R (~KB). Cargar el RDS completo (~22 MB comprimido, >200 MB en RAM)
+# provoca que el proceso sea eliminado con "signal: killed".
+#
+#   pte_base: paciente × CACI × mes  → la mayoría de las pestañas
+#   une_base: CACI × mes × unidad    → Tab 8 "Por unidad"
+#   dt_base : paciente × mes × dpto  → Tab 10 "Datos"
+
+if (file.exists(file.path(data_dir, "pte_base.rds"))) {
+
+  message("[GRD-App] Cargando datos pre-agregados (modo deploy)...")
+  pte_base <- readRDS(file.path(data_dir, "pte_base.rds"))
+  une_base <- readRDS(file.path(data_dir, "une_base.rds"))
+  dt_base  <- readRDS(file.path(data_dir, "dt_base.rds"))
+
+  # Restaurar factor con jerarquía clínica (se serializa como character en xz)
+  for (.nm in c("pte_base", "une_base", "dt_base")) {
+    .df <- get(.nm)
+    if ("caci" %in% names(.df))
+      .df$caci <- factor(as.character(.df$caci), levels = caci_levels)
+    assign(.nm, .df)
+  }
+  rm(.nm, .df)
+
+} else {
+
+  message("[GRD-App] Archivos pre-agregados no encontrados — cargando RDS completo...")
+  message("          Ejecuta shiny_grd/prep_data.R para generar los archivos compactos.")
+
+  safe_import <- function(f) {
+    df <- rio::import(f)
+    for (col in c("fecha_cargue", "fecha_registro", "fecha_ingreso", "fecha_de_egreso"))
+      if (col %in% names(df)) df[[col]] <- as.Date(df[[col]])
+    for (col in c("edad", "año"))
+      if (col %in% names(df))
+        df[[col]] <- suppressWarnings(as.numeric(as.character(df[[col]])))
+    for (col in c("transaccion", "mes_cargue", "mes", "ingreso", "cod_cargo"))
+      if (col %in% names(df)) df[[col]] <- as.character(df[[col]])
+    ordered_cols <- names(df)[sapply(df, is.ordered)]
+    for (col in ordered_cols) df[[col]] <- as.character(df[[col]])
+    df
+  }
+
+  prep_costo <- function(df) {
+    df <- df %>% janitor::clean_names()
+    if ("caci_3" %in% names(df) && !"caci" %in% names(df))
+      df <- rename(df, caci = caci_3)
+    else if ("caci_3" %in% names(df) && "caci" %in% names(df))
+      df <- select(df, -caci_3)
+    if ("costo_2" %in% names(df) && !"costo" %in% names(df))
+      df <- rename(df, costo = costo_2)
+    else if ("costo_2" %in% names(df) && "costo" %in% names(df))
+      df <- select(df, -costo_2)
+    df %>%
+      mutate(
+        fecha_cargue = as.Date(fecha_cargue),
+        venta  = readr::parse_number(
+          as.character(valor_cargo_tarifario),
+          locale = readr::locale(grouping_mark = ",", decimal_mark = ".")
+        ),
+        costo      = as.numeric(costo),
+        año        = as.integer(dplyr::coalesce(
+                       suppressWarnings(as.numeric(ano)), year(fecha_cargue))),
+        mes_cargue = as.integer(month(fecha_cargue)),
+        caci       = recode_caci(caci)
+      ) %>%
+      filter(año >= 2024L, !is.na(año))
+  }
+
+  classify_une_local <- function(dept, dept2 = NA_character_) {
+    case_when(
+      str_detect(coalesce(dept, ""), "HOSPITALIZACION|HOSPITALIZACIÓN|UCI|UCIN") ~ "Estancia",
+      str_detect(coalesce(dept, ""), "ANGIOGRAFI|HEMODINAM")                     ~ "Hemodinamia",
+      str_detect(coalesce(dept, ""), "CIRUGIA|CIRUGÍA")                          ~ "Cirugía",
+      str_detect(coalesce(dept, ""), "URGENCIAS")                                ~ "Urgencias",
+      str_detect(coalesce(dept, ""), "CONSULTA")                                 ~ "Consulta externa",
+      str_detect(coalesce(dept, ""), "RESONANCIA|ECOGRAFIA|ECOGRAFÍA|ESCANOGR|RAYOS") ~ "Imágenes",
+      str_detect(coalesce(dept, ""), "LABORATORIO")                              ~ "Laboratorio",
+      coalesce(dept2, "") == "FARMACIA"                                          ~ "Medicamentos",
+      TRUE                                                                       ~ "Otro"
+    )
+  }
+
+  cost_files      <- list.files(data_dir, pattern = "data_costo_total_3_.*_II\\.rds", full.names = TRUE)
+  data_costo_raw  <- bind_rows(lapply(cost_files, safe_import))
+  data_costo_base <- prep_costo(data_costo_raw)
+  rm(data_costo_raw); gc()
+
+  pte_base <- data_costo_base %>%
+    filter(!is.na(caci), !is.na(identificacion)) %>%
+    group_by(identificacion, caci, año, mes_cargue) %>%
+    summarise(costo = sum(costo, na.rm = TRUE), venta = sum(venta, na.rm = TRUE),
+              .groups = "drop")
+
+  une_base <- data_costo_base %>%
+    filter(!is.na(caci)) %>%
+    mutate(Unidad = classify_une_local(
+      if ("departamento_cargue"   %in% names(.)) departamento_cargue   else NA_character_,
+      if ("departamento_cargue_2" %in% names(.)) departamento_cargue_2 else NA_character_
+    )) %>%
+    group_by(año, mes_cargue, caci, Unidad) %>%
+    summarise(costo = sum(costo, na.rm = TRUE), .groups = "drop")
+
+  dt_base <- data_costo_base %>%
+    filter(!is.na(caci)) %>%
+    mutate(departamento_cargue_2 =
+             if ("departamento_cargue_2" %in% names(.)) departamento_cargue_2 else NA_character_) %>%
+    group_by(año, mes_cargue, caci, identificacion, departamento_cargue_2) %>%
+    summarise(costo = sum(costo, na.rm = TRUE), venta = sum(venta, na.rm = TRUE),
+              .groups = "drop")
+
+  rm(data_costo_base); gc()
+}
+
+# ── Añadir mes_nombre a pte_base (necesario para reactivos de ticket) ─────────
+pte_base <- pte_base %>% mutate(mes_nombre = mes_factor(mes_cargue))
+
+# ── Perfil de pacientes: todos los pacientes DIME (no solo CACI) ─────────────
+# pre-agregado por shiny_grd/prep_data.R desde data/data_discharges_hosp.rds
+edad_grupo_levels <- c("0-9","10-19","20-29","30-39","40-49",
+                       "50-59","60-69","70-79","80+")
+payer_colors <- c(
+  "EAPB"                = "#4E79A7",
+  "SLE - Particulares"   = "#F28E2B",
+  "SLE - MP/Pólizas"     = "#B07AA1",
+  "Sin dato"             = "#95A5A6"
+)
+sexo_colors <- c(Femenino = "#F28E2B", Masculino = "#4E79A7")
+
+if (file.exists(file.path(data_dir, "perfil_pacientes.rds"))) {
+  perfil_pacientes <- readRDS(file.path(data_dir, "perfil_pacientes.rds"))
+  perfil_pacientes$edad_grupo <- factor(as.character(perfil_pacientes$edad_grupo),
+                                        levels = edad_grupo_levels)
+} else if (file.exists(file.path(data_dir, "data_discharges_hosp.rds"))) {
+  message("[GRD-App] perfil_pacientes.rds no encontrado — ejecuta shiny_grd/prep_data.R.")
+  message("          Se omite la pestaña 'Perfil de pacientes' hasta generarlo.")
+  perfil_pacientes <- NULL
+} else {
+  perfil_pacientes <- NULL
+}
+
+perfil_year_choices <- if (!is.null(perfil_pacientes))
+  sort(unique(na.omit(perfil_pacientes$año)), decreasing = TRUE) else integer(0)
+
+# ── Mapa de pacientes geocodificados (EAPB / SLE / CACI) ─────────────────────
+# pre-generado por scripts/geocode_addresses.R desde data/data_cense_2017_2026.rds
+# vía un servidor Nominatim local (self-hosted). Sin cédula, nombre ni texto de
+# dirección — solo coordenadas con jitter de privacidad (~55 m).
+caci_map_colors <- c(caci_colors, "No CACI" = "#BDBDBD")
+
+# DIME Clínica Neurocardiovascular — Avenida 5N #20N-75, Versalles, Cali.
+DIME_LAT <- 3.4613735
+DIME_LON <- -76.5289358
+
+distancia_banda_levels <- c("< 1 km", "1-2 km", "2-5 km", "5-10 km", "> 10 km")
+distancia_banda_colors <- setNames(
+  c("#2ECC71", "#82E0AA", "#F4D03F", "#E67E22", "#C0392B"),
+  distancia_banda_levels
+)
+frecuencia_levels <- c("Única visita/año", "Múltiples visitas/año", "Múltiples visitas/mes")
+tipo_atencion_levels <- c("Ambulatorio", "Hospitalario")
+tipo_atencion_colors <- c(Ambulatorio = "#59A14F", Hospitalario = "#E15759")
+
+if (file.exists(file.path(data_dir, "geocoded_map_data.rds"))) {
+  geocoded_map_data <- readRDS(file.path(data_dir, "geocoded_map_data.rds"))
+  geocoded_map_data$caci <- factor(geocoded_map_data$caci,
+                                   levels = c(caci_levels, "No CACI"))
+  geocoded_map_data$distancia_banda <- factor(as.character(geocoded_map_data$distancia_banda),
+                                              levels = distancia_banda_levels)
+  geocoded_map_data$frecuencia <- factor(geocoded_map_data$frecuencia,
+                                         levels = frecuencia_levels)
+  geocoded_map_data$tipo_atencion <- factor(geocoded_map_data$tipo_atencion,
+                                            levels = tipo_atencion_levels)
+  map_year_choices <- sort(unique(na.omit(geocoded_map_data$año)), decreasing = TRUE)
+  map_servicio_choices <- sort(unique(na.omit(geocoded_map_data$servicio)))
+} else {
+  message("[GRD-App] geocoded_map_data.rds no encontrado — ejecuta scripts/geocode_addresses.R.")
+  message("          Se omite la pestaña 'Mapa'.")
+  geocoded_map_data <- NULL
+  map_year_choices <- integer(0)
+  map_servicio_choices <- character(0)
+}
+
+if (file.exists(file.path(data_dir, "comunas_cali.rds"))) {
+  comunas_cali <- readRDS(file.path(data_dir, "comunas_cali.rds"))
+} else {
+  comunas_cali <- NULL
+}
+
+if (file.exists(file.path(data_dir, "visitas_mensuales.rds"))) {
+  visitas_mensuales <- readRDS(file.path(data_dir, "visitas_mensuales.rds"))
+} else {
+  visitas_mensuales <- NULL
+}
 
 # ── Opciones para selectores UI ───────────────────────────────────────────────
-year_choices <- sort(unique(na.omit(data_costo_base$año)), decreasing = TRUE)
-caci_choices <- levels(data_costo_base$caci)   # orden jerárquico del factor
+year_choices <- sort(unique(na.omit(pte_base$año)), decreasing = TRUE)
 
-mes_labels  <- format(as.Date(paste0("2026-", 1:12, "-01")), "%B")
-mes_choices <- c("Todos los meses" = "0", setNames(as.character(1:12), mes_labels))
+# Paleta de años: asignada dinámicamente en orden cronológico.
+# Los 3 primeros colores preservan la identidad visual histórica
+# (2024→rojo, 2025→naranja, 2026→azul); años futuros reciben colores adicionales.
+.year_palette <- c("#C0392B", "#E67E22", "#2980B9",
+                   "#27AE60", "#8E44AD", "#16A085", "#F39C12", "#2C3E50")
+year_colors   <- setNames(
+  .year_palette[seq_along(year_choices)],
+  as.character(sort(year_choices))    # ascendente: 2024, 2025, 2026, ...
+)
+rm(.year_palette)
 
-# ── Clasificación por Unidad de Negocio ───────────────────────────────────────
-classify_une <- function(dept, dept2 = NA_character_) {
-  case_when(
-    str_detect(coalesce(dept, ""), "HOSPITALIZACION|HOSPITALIZACIÓN|UCI|UCIN") ~ "Estancia",
-    str_detect(coalesce(dept, ""), "ANGIOGRAFI|HEMODINAM")                     ~ "Hemodinamia",
-    str_detect(coalesce(dept, ""), "CIRUGIA|CIRUGÍA")                          ~ "Cirugía",
-    str_detect(coalesce(dept, ""), "URGENCIAS")                                ~ "Urgencias",
-    str_detect(coalesce(dept, ""), "CONSULTA")                                 ~ "Consulta externa",
-    str_detect(coalesce(dept, ""), "RESONANCIA|ECOGRAFIA|ECOGRAFÍA|ESCANOGR|RAYOS") ~ "Imágenes",
-    str_detect(coalesce(dept, ""), "LABORATORIO")                              ~ "Laboratorio",
-    coalesce(dept2, "") == "FARMACIA"                                          ~ "Medicamentos",
-    TRUE                                                                       ~ "Otro"
-  )
-}
+caci_choices <- caci_levels  # orden jerárquico fijo; no depende de los datos
+
+meses_full  <- c("Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                 "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre")
+mes_choices <- c("Todos los meses" = "0", setNames(as.character(1:12), meses_full))
 
 message("[GRD-App] global.R listo. Años disponibles: ",
         paste(sort(year_choices), collapse = ", "),

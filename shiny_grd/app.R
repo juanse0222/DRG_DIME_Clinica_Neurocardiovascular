@@ -10,15 +10,23 @@ source("global.R")
 # UI
 # ══════════════════════════════════════════════════════════════════════════════
 ui <- dashboardPage(
+  title = "Análisis Grupos Relacionados de Diagnóstico y Caracterización de Pacientes — DIME Clínica Neurocardiovascular",
   skin = "blue",
 
   dashboardHeader(
-    title = tags$span(
-      tags$img(src = "logo.png", height = "32px",
-               style = "margin-right:8px; vertical-align:middle;"),
-      "Análisis GRD"
+    title = "Análisis GRD",
+    titleWidth = 240,
+    tags$li(class = "dropdown header-center-title-item",
+      tags$span(class = "header-center-title",
+        "Análisis Grupos Relacionados de Diagnóstico y Caracterización de Pacientes",
+        tags$span(class = "header-title-sub", "DIME Clínica Neurocardiovascular")
+      )
     ),
-    titleWidth = 260
+    tags$li(class = "dropdown",
+      tags$a(style = "padding-top:8px; padding-bottom:8px; display:block;",
+        tags$img(src = "logo.png", height = "34px")
+      )
+    )
   ),
 
   dashboardSidebar(
@@ -34,6 +42,8 @@ ui <- dashboardPage(
       menuItem("Anual",         tabName = "anual",         icon = icon("calendar")),
       menuItem("Por unidad",    tabName = "por_unidad",    icon = icon("hospital")),
       menuItem("Epidemiología", tabName = "epidemiologia", icon = icon("stethoscope")),
+      menuItem("Perfil de pacientes", tabName = "perfil_pac", icon = icon("user-injured")),
+      menuItem("Mapa",                tabName = "mapa_pac",   icon = icon("map-marked-alt")),
       menuItem("Datos",         tabName = "datos",         icon = icon("table"))
     ),
     tags$hr(style = "border-color:rgba(255,255,255,.2); margin:8px 0;"),
@@ -65,7 +75,10 @@ ui <- dashboardPage(
   ),
 
   dashboardBody(
-    tags$head(tags$link(rel = "stylesheet", href = "styles.css")),
+    tags$head(
+      tags$link(rel = "stylesheet", href = "styles.css"),
+      tags$script(src = "fullscreen.js")
+    ),
     tabItems(
 
       # ════════════════════════════════════════════════════════════════════════
@@ -256,6 +269,137 @@ ui <- dashboardPage(
       ),
 
       # ════════════════════════════════════════════════════════════════════════
+      # Tab · Perfil de pacientes — TODOS los pacientes DIME (no solo CACI)
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "perfil_pac",
+        fluidRow(
+          box(width = 12, solidHeader = FALSE, status = "primary",
+              tags$div(style = "display:flex; gap:24px; align-items:flex-end; flex-wrap:wrap;",
+                tags$div(style = "min-width:220px;",
+                  selectInput("pp_yr", "Año",
+                              choices = c("Todos" = "0", setNames(as.character(perfil_year_choices), perfil_year_choices)),
+                              selected = "0")
+                ),
+                tags$div(style = "flex:1; min-width:260px;",
+                  tags$small(tags$em(
+                    "SLE (Segmento Libre Elección) se divide en Particulares (pago directo, ",
+                    "convenios médicos, PREVISER) y MP/Pólizas (medicina prepagada y ",
+                    "aseguradoras), según metodología del proyecto Prexo SLE / AV DIME ",
+                    "(Personal JSH/analisis_comercial_2024)."
+                  ))
+                )
+              )
+          )
+        ),
+        uiOutput("pp_kpi_boxes"),
+        br(),
+        fluidRow(
+          box(title = tagList(icon("venus-mars"), " Pirámide poblacional"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("pp_plot_piramide", height = "420px")),
+          box(title = tagList(icon("hand-holding-medical"), " Tipo de pagador (EAPB / SLE)"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("pp_plot_pagador", height = "420px"))
+        ),
+        fluidRow(
+          box(title = tagList(icon("door-open"), " Canal de ingreso"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("pp_plot_canal", height = "380px")),
+          box(title = tagList(icon("stethoscope"), " Diagnósticos de ingreso más frecuentes"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("pp_plot_dx", height = "380px"))
+        ),
+        fluidRow(
+          box(title = tagList(icon("bed"), " Estancia hospitalaria (días)"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("pp_plot_estancia", height = "380px")),
+          box(title = tagList(icon("chart-area"), " Ingresos por año"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("pp_plot_tendencia", height = "380px"))
+        )
+      ),
+
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab · Mapa — pacientes geocodificados (EAPB / SLE / CACI)
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "mapa_pac",
+        fluidRow(
+          tags$div(class = "filters-compact",
+            box(width = 12, solidHeader = FALSE, status = "primary",
+              tags$div(style = "display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;",
+                tags$span(class = "filters-section-label", style = "margin-bottom:0;", "Vista del mapa"),
+                downloadButton("map_download", "Descargar datos (CSV)", class = "btn-sm")
+              ),
+              tags$div(style = "display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap;",
+                tags$div(style = "min-width:120px;",
+                  selectInput("map_yr", "Año",
+                              choices = c("Todos" = "0", setNames(as.character(map_year_choices), map_year_choices)),
+                              selected = "0")
+                ),
+                tags$div(style = "min-width:180px;",
+                  radioButtons("map_color_mode", "Colorear por",
+                               choices  = c("Tipo de pagador", "CACI", "Distancia a DIME"),
+                               selected = "Tipo de pagador")
+                ),
+                tags$div(style = "min-width:150px;",
+                  checkboxInput("map_cluster", "Agrupar en clústeres", value = TRUE)
+                ),
+                tags$div(style = "min-width:190px;",
+                  checkboxInput("map_comunas", "Mostrar concentración por comuna", value = FALSE)
+                ),
+                tags$div(style = "flex:1; min-width:240px;",
+                  tags$small(tags$em(
+                    uiOutput("map_caveat", inline = TRUE)
+                  ))
+                )
+              ),
+              tags$hr(),
+              tags$span(class = "filters-section-label", "Segmentación de pacientes"),
+              tags$div(style = "display:flex; gap:24px; align-items:flex-start;",
+                tags$div(style = "display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap; flex:1;",
+                  tags$div(style = "min-width:160px;",
+                    checkboxGroupInput("map_atencion", "Tipo de atención",
+                                       choices = tipo_atencion_levels, selected = tipo_atencion_levels)
+                  ),
+                  tags$div(style = "min-width:220px;",
+                    checkboxGroupInput("map_pagador", "Tipo de pagador",
+                                       choices  = names(payer_colors)[names(payer_colors) != "Sin dato"],
+                                       selected = names(payer_colors)[names(payer_colors) != "Sin dato"])
+                  ),
+                  tags$div(style = "min-width:190px;",
+                    checkboxGroupInput("map_frecuencia", "Frecuencia de visitas",
+                                       choices = frecuencia_levels, selected = frecuencia_levels)
+                  ),
+                  tags$div(style = "min-width:210px;",
+                    checkboxGroupInput("map_caci_tipo", "Tipo CACI",
+                                       choices = c(caci_levels, "No CACI"),
+                                       selected = c(caci_levels, "No CACI"))
+                  )
+                ),
+                tags$div(style = "min-width:300px; max-width:400px; flex-shrink:0;",
+                  selectizeInput("map_servicio", "Servicio",
+                                choices = map_servicio_choices, selected = map_servicio_choices,
+                                multiple = TRUE, width = "100%",
+                                options = list(plugins = list("remove_button"),
+                                               placeholder = "Todos los servicios"))
+                )
+              )
+            )
+          )
+        ),
+        fluidRow(
+          box(width = 12, solidHeader = TRUE, status = "primary",
+              title = tagList(icon("map-marked-alt"), " Pacientes geocodificados — DIME"),
+              leafletOutput("map_pacientes", height = "600px"))
+        ),
+        fluidRow(
+          box(width = 12, solidHeader = TRUE, status = "primary",
+              title = tagList(icon("chart-bar"), " Visitas por mes — EAPB / SLE"),
+              plotlyOutput("map_plot_mensual", height = "320px"))
+        )
+      ),
+
+      # ════════════════════════════════════════════════════════════════════════
       # Tab 10 · Datos detallados
       # ════════════════════════════════════════════════════════════════════════
       tabItem(tabName = "datos",
@@ -286,8 +430,7 @@ server <- function(input, output, session) {
     mon <- as.integer(isolate(input$mon))
     yr  <- as.integer(isolate(input$yr))
     if (mon > 0) {
-      str_to_sentence(format(as.Date(paste0(yr, "-", sprintf("%02d", mon), "-01")),
-                             "%B %Y"))
+      paste(meses_abr[mon], yr)
     } else {
       as.character(yr)
     }
@@ -300,28 +443,40 @@ server <- function(input, output, session) {
 
   output$ultimo_mes <- renderText({
     trigger()
-    df <- data_costo_base %>%
+    # pte_base existe tanto en modo deploy (pre-agregado) como en desarrollo
+    # (data_costo_base solo existe en desarrollo local) — usar siempre pte_base
+    # para que este indicador no dependa del modo de carga.
+    df <- pte_base %>%
       filter(año == as.integer(isolate(input$yr))) %>%
       summarise(m = max(mes_cargue, na.rm = TRUE))
     mes_label <- tryCatch(
-      format(as.Date(paste0(isolate(input$yr), "-", df$m, "-01")), "%B %Y"),
+      paste(meses_abr[df$m], isolate(input$yr)),
       error = function(e) "—"
     )
     mes_label
   })
 
   # ── Datasets filtrados ────────────────────────────────────────────────────
-  data_costo_filt <- reactive({
+  # Filtro de une_base (Tab 8 — Por unidad)
+  une_filt <- reactive({
     trigger()
     yr    <- as.integer(isolate(input$yr))
     mon   <- as.integer(isolate(input$mon))
     cacis <- isolate(input$caci_sel)
-
-    df <- data_costo_base %>%
-      filter(año == yr, is.na(caci) | as.character(caci) %in% cacis)
-
-    if (mon > 0) df <- df %>% filter(mes_cargue == mon)
+    df <- une_base %>%
+      filter(año == yr, as.character(caci) %in% cacis)
+    if (mon > 0L) df <- df %>% filter(mes_cargue == mon)
     df
+  })
+
+  # Filtro de dt_base (Tab 10 — Datos)
+  dt_filt <- reactive({
+    trigger()
+    yr_desde <- as.integer(isolate(input$yr_desde))
+    yr       <- as.integer(isolate(input$yr))
+    cacis    <- isolate(input$caci_sel)
+    dt_base %>%
+      filter(año >= yr_desde, año <= yr, as.character(caci) %in% cacis)
   })
 
   data_grd_filt <- reactive({
@@ -335,17 +490,6 @@ server <- function(input, output, session) {
 
     if (mon > 0) df <- df %>% filter(month(fecha_ingreso) == mon)
     df
-  })
-
-  data_costo_hist <- reactive({
-    trigger()
-    yr_desde <- as.integer(isolate(input$yr_desde))
-    yr       <- as.integer(isolate(input$yr))
-    cacis    <- isolate(input$caci_sel)
-
-    data_costo_base %>%
-      filter(año >= yr_desde, año <= yr,
-             is.na(caci) | as.character(caci) %in% cacis)
   })
 
   # ── Costo por paciente × CACI × mes ──────────────────────────────────────
@@ -835,16 +979,17 @@ server <- function(input, output, session) {
       bordered      = TRUE,
       defaultColDef = colDef(align = "center", minWidth = 100),
       rowStyle = function(index) {
-        list(background = switch(df$Año[index],
-               "2024" = "#FDEDEC", "2025" = "#FEF9E7",
-               "2026" = "#EBF5FB", "white"))
+        clr <- year_colors[df$Año[index]]
+        if (!is.na(clr)) {
+          v <- col2rgb(clr)[, 1]
+          list(background = sprintf("rgba(%d,%d,%d,0.10)", v[1], v[2], v[3]))
+        } else list(background = "white")
       },
       columns = list(
         Año  = colDef(minWidth = 60, sticky = "left",
                       style = function(v) {
-                        list(color = switch(v,
-                               "2024" = "#C0392B", "2025" = "#E67E22",
-                               "2026" = "#2980B9", "black"),
+                        clr <- year_colors[as.character(v)]
+                        list(color = if (!is.na(clr)) clr else "black",
                              fontWeight = "bold")
                       }),
         Mes              = colDef(minWidth = 60),
@@ -1085,16 +1230,17 @@ server <- function(input, output, session) {
       bordered      = TRUE,
       defaultColDef = colDef(align = "center", minWidth = 100),
       rowStyle = function(index) {
-        list(background = switch(df$Año[index],
-               "2024" = "#FDEDEC", "2025" = "#FEF9E7",
-               "2026" = "#EBF5FB", "white"))
+        clr <- year_colors[df$Año[index]]
+        if (!is.na(clr)) {
+          v <- col2rgb(clr)[, 1]
+          list(background = sprintf("rgba(%d,%d,%d,0.10)", v[1], v[2], v[3]))
+        } else list(background = "white")
       },
       columns = list(
         Año  = colDef(minWidth = 70, sticky = "left",
                       style = function(v) {
-                        list(color = switch(v,
-                               "2024" = "#C0392B", "2025" = "#E67E22",
-                               "2026" = "#2980B9", "black"),
+                        clr <- year_colors[as.character(v)]
+                        list(color = if (!is.na(clr)) clr else "black",
                              fontWeight = "bold")
                       }),
         CACI           = colDef(minWidth = 80),
@@ -1161,11 +1307,10 @@ server <- function(input, output, session) {
   # Tab 8 · Por unidad
   # ══════════════════════════════════════════════════════════════════════════
   output$plot_une <- renderPlotly({
-    une_caci <- data_costo_filt() %>%
-      mutate(Unidad     = classify_une(departamento_cargue, departamento_cargue_2),
-             mes_nombre = mes_factor(mes_cargue)) %>%
+    une_caci <- une_filt() %>%
       filter(!is.na(caci)) %>%
-      group_by(Mes = mes_nombre, CACI = caci, Unidad) %>%
+      mutate(Mes = mes_factor(mes_cargue)) %>%
+      group_by(Mes, CACI = caci, Unidad) %>%
       summarise(Costo = sum(costo, na.rm = TRUE), .groups = "drop")
 
     p <- ggplot(une_caci, aes(x = Mes, y = Costo, fill = Unidad,
@@ -1188,7 +1333,10 @@ server <- function(input, output, session) {
   # Tab 9 · Epidemiología
   # ══════════════════════════════════════════════════════════════════════════
   output$plot_piramide <- renderPlotly({
-    data_pir <- data_grd_filt() %>%
+    df_epi <- data_grd_filt()
+    # Accept 'documento' or 'identificacion' as the patient ID column
+    id_col <- intersect(c("documento", "identificacion"), names(df_epi))[1]
+    data_pir <- df_epi %>%
       filter(!is.na(caci), !is.na(edad), !is.na(sexo)) %>%
       mutate(
         Sexo = case_when(
@@ -1205,7 +1353,8 @@ server <- function(input, output, session) {
         )
       ) %>%
       group_by(CACI = caci, `Grupo de edad`, Sexo) %>%
-      summarise(n = n_distinct(documento), .groups = "drop") %>%
+      summarise(n = if (!is.na(id_col)) n_distinct(.data[[id_col]]) else n(),
+                .groups = "drop") %>%
       mutate(n_dir = if_else(Sexo == "Femenino", -n, n))
 
     p <- ggplot(data_pir, aes(x = `Grupo de edad`, y = n_dir, fill = Sexo,
@@ -1226,16 +1375,19 @@ server <- function(input, output, session) {
   })
 
   output$tabla_epi <- renderReactable({
-    df <- data_grd_filt() %>%
+    df_epi2 <- data_grd_filt()
+    id_col2  <- intersect(c("documento", "identificacion"), names(df_epi2))[1]
+    has_stay <- "dif_days" %in% names(df_epi2)
+    df <- df_epi2 %>%
       filter(!is.na(caci)) %>%
       group_by(caci) %>%
       summarise(
-        Pacientes         = n_distinct(documento),
+        Pacientes         = if (!is.na(id_col2)) n_distinct(.data[[id_col2]]) else n(),
         `Edad mediana`    = median(edad, na.rm = TRUE),
         `Edad P25`        = quantile(edad, 0.25, na.rm = TRUE),
         `Edad P75`        = quantile(edad, 0.75, na.rm = TRUE),
-        `Estancia mediana`= median(dif_days, na.rm = TRUE),
-        `Estancia P75`    = quantile(dif_days, 0.75, na.rm = TRUE),
+        `Estancia mediana`= if (has_stay) median(dif_days, na.rm = TRUE) else NA_real_,
+        `Estancia P75`    = if (has_stay) quantile(dif_days, 0.75, na.rm = TRUE) else NA_real_,
         .groups = "drop"
       ) %>%
       arrange(caci)
@@ -1262,7 +1414,11 @@ server <- function(input, output, session) {
   })
 
   output$plot_estancia <- renderPlotly({
-    df <- data_grd_filt() %>%
+    df_raw <- data_grd_filt()
+    if (!"dif_days" %in% names(df_raw)) {
+      return(plotly_empty() %>% layout(title = "Columna dif_days no disponible en estos datos"))
+    }
+    df <- df_raw %>%
       filter(!is.na(caci), !is.na(dif_days), dif_days >= 0)
     p <- ggplot(df, aes(x = caci, y = dif_days, fill = caci,
                         text = paste0("CACI: ", caci, "<br>Días: ", dif_days))) +
@@ -1278,22 +1434,265 @@ server <- function(input, output, session) {
   })
 
   # ══════════════════════════════════════════════════════════════════════════
+  # Tab · Perfil de pacientes
+  # ══════════════════════════════════════════════════════════════════════════
+  pp_filt <- reactive({
+    req(perfil_pacientes)
+    yr <- as.integer(input$pp_yr)
+    df <- perfil_pacientes
+    if (!is.na(yr) && yr > 0) df <- df %>% filter(año == yr)
+    df
+  })
+
+  output$pp_kpi_boxes <- renderUI({
+    if (is.null(perfil_pacientes)) {
+      return(fluidRow(box(width = 12, status = "warning",
+        "Perfil de pacientes no disponible: ejecuta shiny_grd/prep_data.R.")))
+    }
+    df <- pp_filt()
+    fluidRow(
+      valueBox(format(n_distinct(df$documento), big.mark = "."),
+               "Pacientes", icon = icon("users"), color = "blue", width = 3),
+      valueBox(format(as.integer(round(median(df$edad, na.rm = TRUE))), big.mark = "."),
+               "Edad mediana", icon = icon("birthday-cake"), color = "purple", width = 3),
+      valueBox(pct_fmt(100 * mean(df$mortalidad, na.rm = TRUE)),
+               "Mortalidad intrahospitalaria", icon = icon("heart-broken"), color = "red", width = 3),
+      valueBox(pct_fmt(100 * mean(df$cirugia, na.rm = TRUE)),
+               "Remitidos a cirugía", icon = icon("scalpel"), color = "green", width = 3)
+    )
+  })
+
+  output$pp_plot_piramide <- renderPlotly({
+    df <- pp_filt() %>% filter(!is.na(edad_grupo), !is.na(sexo))
+    req(nrow(df) > 0)
+    d <- df %>%
+      count(edad_grupo, sexo) %>%
+      mutate(n_dir = if_else(sexo == "Femenino", -n, n))
+    p <- ggplot(d, aes(x = edad_grupo, y = n_dir, fill = sexo,
+                       text = paste0("Edad: ", edad_grupo, "<br>Sexo: ", sexo, "<br>Pacientes: ", n))) +
+      geom_col(color = "black", linewidth = 0.2) +
+      coord_flip() +
+      scale_y_continuous(labels = abs) +
+      scale_fill_manual(values = sexo_colors) +
+      labs(x = "Grupo de edad", y = "Pacientes", fill = "Sexo") +
+      theme_classic() +
+      theme(legend.position = "bottom")
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$pp_plot_pagador <- renderPlotly({
+    df <- pp_filt()
+    req(nrow(df) > 0)
+    d <- df %>% count(tipo_pagador) %>% mutate(pct = n / sum(n) * 100)
+    p <- ggplot(d, aes(x = reorder(tipo_pagador, n), y = n, fill = tipo_pagador,
+                       text = paste0(tipo_pagador, "<br>Pacientes: ", n,
+                                     "<br>", round(pct, 1), "%"))) +
+      geom_col() +
+      coord_flip() +
+      scale_fill_manual(values = payer_colors) +
+      labs(x = NULL, y = "Encuentros") +
+      theme_classic() +
+      theme(legend.position = "none")
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$pp_plot_canal <- renderPlotly({
+    df <- pp_filt()
+    req(nrow(df) > 0)
+    d <- df %>% count(via_ingreso, sort = TRUE)
+    p <- ggplot(d, aes(x = reorder(via_ingreso, n), y = n,
+                       text = paste0(via_ingreso, "<br>Encuentros: ", n))) +
+      geom_col(fill = "#4E79A7") +
+      coord_flip() +
+      labs(x = NULL, y = "Encuentros") +
+      theme_classic()
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$pp_plot_dx <- renderPlotly({
+    df <- pp_filt() %>% filter(!is.na(dx_desc))
+    req(nrow(df) > 0)
+    d <- df %>% count(dx_desc, sort = TRUE) %>% slice_head(n = 10)
+    p <- ggplot(d, aes(x = reorder(str_trunc(dx_desc, 40), n), y = n,
+                       text = paste0(dx_desc, "<br>Casos: ", n))) +
+      geom_col(fill = "#E15759") +
+      coord_flip() +
+      labs(x = NULL, y = "Casos") +
+      theme_classic()
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$pp_plot_estancia <- renderPlotly({
+    df <- pp_filt() %>% filter(!is.na(estancia_dias), estancia_dias >= 0, estancia_dias < 90)
+    req(nrow(df) > 0)
+    p <- ggplot(df, aes(x = estancia_dias)) +
+      geom_histogram(binwidth = 1, fill = "#59A14F", color = "white") +
+      labs(x = "Días de estancia", y = "Pacientes") +
+      theme_classic()
+    ggplotly(p)
+  })
+
+  output$pp_plot_tendencia <- renderPlotly({
+    req(perfil_pacientes)
+    d <- perfil_pacientes %>% count(año)
+    p <- ggplot(d, aes(x = año, y = n, text = paste0("Año: ", año, "<br>Ingresos: ", n))) +
+      geom_line(color = "#4E79A7", linewidth = 1) +
+      geom_point(color = "#4E79A7", size = 2) +
+      labs(x = NULL, y = "Ingresos") +
+      theme_classic()
+    ggplotly(p, tooltip = "text")
+  })
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Tab · Mapa de pacientes geocodificados
+  # ══════════════════════════════════════════════════════════════════════════
+  map_filt <- reactive({
+    req(geocoded_map_data)
+    yr <- as.integer(input$map_yr)
+    df <- geocoded_map_data %>%
+      filter(tipo_pagador %in% input$map_pagador,
+             as.character(frecuencia) %in% input$map_frecuencia,
+             as.character(servicio) %in% input$map_servicio,
+             as.character(tipo_atencion) %in% input$map_atencion,
+             as.character(caci) %in% input$map_caci_tipo)
+    if (!is.na(yr) && yr > 0) df <- df %>% filter(año == yr)
+    df
+  })
+
+  output$map_caveat <- renderUI({
+    req(geocoded_map_data)
+    HTML(sprintf(paste(
+      "Mostrando <b>%s</b> de %s filas paciente×año geocodificadas.",
+      "Excluye direcciones de solo municipio/sin detalle de calle;",
+      "coordenadas con jitter de privacidad (~55 m).",
+      "Distancia calculada desde DIME (Av. 5N #20N-75, Versalles)."
+    ), format(nrow(map_filt()), big.mark = "."), format(nrow(geocoded_map_data), big.mark = ".")))
+  })
+
+  output$map_download <- downloadHandler(
+    filename = function() paste0("dime_mapa_pacientes_", format(Sys.Date(), "%Y%m%d"), ".csv"),
+    content = function(file) {
+      readr::write_excel_csv(map_filt(), file, na = "")
+    }
+  )
+
+  output$map_pacientes <- renderLeaflet({
+    df <- map_filt()
+    req(nrow(df) > 0)
+
+    color_mode <- input$map_color_mode
+    if (color_mode == "CACI") {
+      df$color_col  <- as.character(df$caci)
+      pal           <- colorFactor(palette = unname(caci_map_colors), levels = names(caci_map_colors))
+      legend_title  <- "CACI"
+    } else if (color_mode == "Distancia a DIME") {
+      df$color_col  <- as.character(df$distancia_banda)
+      pal           <- colorFactor(palette = unname(distancia_banda_colors), levels = names(distancia_banda_colors))
+      legend_title  <- "Distancia a DIME"
+    } else {
+      df$color_col  <- as.character(df$tipo_pagador)
+      pal           <- colorFactor(palette = unname(payer_colors), levels = names(payer_colors))
+      legend_title  <- "Tipo de pagador"
+    }
+
+    clust_opts <- if (isTRUE(input$map_cluster)) {
+      markerClusterOptions(disableClusteringAtZoom = 17)
+    } else NULL
+
+    rings <- tibble(radio_m = c(1000, 2000, 5000, 10000),
+                    etiqueta = c("1 km", "2 km", "5 km", "10 km"))
+
+    m <- leaflet(df, options = leafletOptions(preferCanvas = TRUE)) %>%
+      addTiles(attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors') %>%
+      setView(lng = -76.53, lat = 3.45, zoom = 12)
+
+    # ── Mapa de concentración por comuna (coroplético) ─────────────────────
+    if (isTRUE(input$map_comunas) && !is.null(comunas_cali)) {
+      conteo_comuna <- df %>% count(comuna, name = "n_pac")
+      comunas_plot <- comunas_cali %>%
+        left_join(conteo_comuna, by = c("nombre" = "comuna")) %>%
+        mutate(n_pac = coalesce(n_pac, 0L))
+      pal_comuna <- colorNumeric(palette = "YlOrRd", domain = c(0, max(comunas_plot$n_pac, 1)))
+      centroides <- suppressWarnings(st_coordinates(st_centroid(comunas_plot)))
+      m <- m %>%
+        addPolygons(
+          data = comunas_plot,
+          fillColor = ~pal_comuna(n_pac), fillOpacity = 0.6,
+          color = "#555555", weight = 1,
+          label = ~paste0(nombre, ": ", n_pac, " pacientes"),
+          highlightOptions = highlightOptions(weight = 2, color = "#000", bringToFront = TRUE)
+        ) %>%
+        addLabelOnlyMarkers(
+          lng = centroides[, "X"], lat = centroides[, "Y"],
+          label = as.character(comunas_plot$comuna),
+          labelOptions = labelOptions(noHide = TRUE, direction = "center", textOnly = TRUE,
+                                      style = list("font-weight" = "bold", "font-size" = "13px",
+                                                   "color" = "#222", "text-shadow" = "0 0 3px #fff, 0 0 3px #fff"))
+        ) %>%
+        addLegend(position = "topright", pal = pal_comuna, values = comunas_plot$n_pac,
+                  title = "Pacientes por comuna", opacity = 0.8)
+    }
+
+    m <- m %>%
+      addCircles(lng = DIME_LON, lat = DIME_LAT, radius = rings$radio_m,
+                 fill = FALSE, color = "#2C3E50", weight = 1.5,
+                 dashArray = "6", opacity = 0.6) %>%
+      addAwesomeMarkers(lng = DIME_LON, lat = DIME_LAT,
+                        icon = makeAwesomeIcon(icon = "plus", markerColor = "darkred", library = "fa"),
+                        popup = "<b>DIME Clínica Neurocardiovascular</b><br>Av. 5N #20N-75, Versalles") %>%
+      addCircleMarkers(
+        lng = ~lon, lat = ~lat,
+        radius = 5, stroke = TRUE, weight = 1, color = "white",
+        fillColor = ~pal(color_col), fillOpacity = 0.85,
+        clusterOptions = clust_opts,
+        popup = ~paste0("<b>", tipo_pagador, "</b><br>Atención: ", tipo_atencion,
+                        "<br>CACI: ", caci,
+                        "<br>Servicio: ", servicio, "<br>Comuna: ", comuna,
+                        "<br>Edad: ", edad_grupo, "<br>Año: ", año,
+                        "<br>Visitas ese año: ", n_visitas_anio,
+                        "<br>Frecuencia: ", frecuencia,
+                        "<br>Distancia a DIME: ", distancia_km, " km (", distancia_banda, ")")
+      ) %>%
+      addLegend(position = "bottomright", pal = pal, values = ~color_col,
+                title = legend_title, opacity = 0.9)
+    m
+  })
+
+  output$map_plot_mensual <- renderPlotly({
+    req(visitas_mensuales)
+    yr <- as.integer(input$map_yr)
+    d <- visitas_mensuales %>%
+      filter(tipo_pagador %in% input$map_pagador,
+             as.character(tipo_atencion) %in% input$map_atencion,
+             as.character(servicio) %in% input$map_servicio)
+    if (!is.na(yr) && yr > 0) d <- d %>% filter(año == yr)
+    d <- d %>%
+      group_by(mes, tipo_pagador) %>%
+      summarise(n_visitas = sum(n_visitas), .groups = "drop") %>%
+      mutate(mes_lbl = mes_factor(mes))
+    req(nrow(d) > 0)
+    p <- ggplot(d, aes(x = mes_lbl, y = n_visitas, fill = tipo_pagador,
+                       text = paste0(mes_lbl, "<br>", tipo_pagador, "<br>Visitas: ", n_visitas))) +
+      geom_col(position = "dodge") +
+      scale_fill_manual(values = payer_colors) +
+      labs(x = NULL, y = "Visitas", fill = "Tipo de pagador") +
+      theme_classic() +
+      theme(legend.position = "bottom")
+    ggplotly(p, tooltip = "text")
+  })
+
+  # ══════════════════════════════════════════════════════════════════════════
   # Tab 10 · Datos detallados
   # ══════════════════════════════════════════════════════════════════════════
   output$tabla_dt <- renderDT({
-    tabla <- data_costo_hist() %>%
+    tabla <- dt_filt() %>%
       filter(!is.na(caci)) %>%
-      group_by(Año      = año,
-               Mes      = mes_factor(mes_cargue),
-               CACI     = caci,
-               Paciente = identificacion,
-               Tipo     = departamento_cargue_2) %>%
-      summarise(
-        costo = sum(costo, na.rm = TRUE),
-        venta = sum(venta, na.rm = TRUE),
-        .groups = "drop"
-      ) %>%
-      mutate(
+      transmute(
+        Año      = año,
+        Mes      = mes_factor(mes_cargue),
+        CACI     = caci,
+        Paciente = identificacion,
+        Tipo     = coalesce(departamento_cargue_2, "—"),
         Margen         = venta - costo,
         `Costo (COP)`  = cop(costo),
         `Ventas (COP)` = cop(venta),

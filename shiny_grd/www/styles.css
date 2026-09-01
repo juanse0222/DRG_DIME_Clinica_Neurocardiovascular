@@ -104,3 +104,147 @@ body,
   border-color:     #3a6080 !important;
 }
 .btn-block { width: 100%; }
+
+/* ── Fullscreen panel ─────────────────────────────────────────────────────── */
+
+/* Dim overlay behind the expanded box */
+.box-fullscreen-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9998;
+  cursor: pointer;
+}
+
+/* Expanded box covers the full viewport */
+.box.box-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden;
+}
+
+/* Box body fills the remaining height below the header */
+.box.box-fullscreen .box-body {
+  height: calc(100vh - 46px) !important;
+  overflow-y: auto;
+}
+
+/* Let Plotly widgets fill the expanded body */
+.box.box-fullscreen .plotly,
+.box.box-fullscreen .html-widget {
+  height: calc(100vh - 90px) !important;
+  min-height: unset !important;
+}
+
+/* Expand / compress button inside each box header */
+.box-expand-btn {
+  color: rgba(255, 255, 255, 0.85) !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 6px !important;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 14px;
+}
+.box-expand-btn:hover { color: white !important; }
+
+/* ── Compact filter panel (Mapa tab) ─────────────────────────────────────── */
+.filters-compact .box {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.filters-compact .box-body {
+  padding: 10px 16px 12px;
+}
+.filters-compact .form-group {
+  margin-bottom: 4px;
+}
+.filters-compact label.control-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #6b7680;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+.filters-compact .shiny-input-container {
+  margin-bottom: 0;
+}
+.filters-compact .checkbox,
+.filters-compact .radio {
+  margin-top: 1px;
+  margin-bottom: 1px;
+}
+.filters-compact .checkbox label,
+.filters-compact .radio label {
+  font-size: 12.5px;
+  font-weight: 400;
+  padding-left: 18px;
+  color: #3c4650;
+}
+.filters-compact .selectize-input,
+.filters-compact .form-control {
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+}
+.filters-compact hr {
+  margin: 8px 0;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+.filters-section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #a2adb6;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* ── Header title (full dashboard name, centered in the header bar) ─────── */
+/* The "logo" box stays short ("Análisis GRD") at AdminLTE's default 50px
+   height so the sidebar-toggle and .main-sidebar offset need no changes.
+   The full name is a separate element, absolutely centered on .main-header
+   (position:relative) — this decouples it from the left logo box width and
+   the right-floated navbar-custom-menu, so it stays centered regardless. */
+.header-center-title-item {
+  position: absolute !important;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  height: 50px;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.header-center-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.header-title-sub {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.75);
+  margin-top: 2px;
+}
+/* Hide the centered title on narrower screens — it would collide with the
+   left title box or the right logo before the header itself would wrap. */
+@media (max-width: 1200px) {
+  .header-center-title-item { display: none; }
+}
