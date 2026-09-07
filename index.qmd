@@ -475,26 +475,26 @@ title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
       <span class="dash-card-icon">📊</span>
       <span class="dash-card-badge badge-live">Interactivo</span>
       <div class="dash-card-title">GRD · Grupos Relacionados de Diagnóstico</div>
-      <div class="dash-card-short">Costos · Ticket · Rentabilidad · Epidemiología</div>
+      <div class="dash-card-short">Costos · Ticket · Rentabilidad · Mapa de pacientes</div>
     </div>
     <div class="dash-card-body">
       <p class="dash-card-desc">
         Asigna a cada paciente su costo real de atención y lo compara con el valor
         facturado, agrupando los resultados por patología CACI. Permite identificar
-        qué grupos son rentables, en qué meses se concentran los costos y cómo
-        evolucionan los indicadores año a año.
+        qué grupos son rentables, en qué meses se concentran los costos, cómo
+        evolucionan los indicadores año a año y de dónde vienen los pacientes.
       </p>
       <ul class="dash-card-features">
         <li>Costo mediano por paciente (ticket) por CACI y mes</li>
         <li>Rentabilidad y margen bruto mensual y anual</li>
-        <li>Comparativo histórico 2024–2026</li>
         <li>Costos por unidad de negocio (estancia, cirugía, medicamentos…)</li>
-        <li>Pirámide poblacional y estancia hospitalaria por CACI</li>
+        <li>Mapa geolocalizado de pacientes: distancia a DIME, comunas de Cali y tipo de pagador (EAPB / SLE Particulares vs. Pólizas)</li>
+        <li>Perfil de pacientes (pirámide poblacional, estancia por CACI) y egresos/reingresos</li>
         <li>Explorador de datos con exportación a Excel</li>
       </ul>
     </div>
     <div class="dash-card-footer">
-      <span class="dash-card-update">Actualizado jul 2026 · 10 pestañas</span>
+      <span class="dash-card-update">Actualizado sep 2026 · 13 pestañas</span>
       <span class="dash-card-btn" style="background:#59A14F;">Abrir →</span>
     </div>
   </a>
@@ -548,15 +548,16 @@ title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
         tendencias bimensuales con IC 95% y perfil de comorbilidades en fallecidos.
       </p>
       <ul class="dash-card-features">
+        <li>Vista global de TMAR y razón O/E, con filtro de rango de años</li>
         <li>TMAR y razón O/E por GRD, año y mes</li>
         <li>Tendencias bimensuales con intervalos de confianza 95%</li>
         <li>Comorbilidades Elixhauser en fallecidos (mapa de calor)</li>
         <li>Distribución de edad y perfil demográfico por grupo</li>
-        <li>Mortalidad por departamento de hospitalización</li>
+        <li>Mortalidad no monitorizada: categorías fuera de los 8 grupos GEE</li>
       </ul>
     </div>
     <div class="dash-card-footer">
-      <span class="dash-card-update">Actualizado jul 2026 · 5 pestañas</span>
+      <span class="dash-card-update">Actualizado sep 2026 · 7 pestañas</span>
       <span class="dash-card-btn" style="background:#A569BD;">Abrir →</span>
     </div>
   </a>
