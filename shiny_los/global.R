@@ -170,14 +170,21 @@ data_dir <- file.path(proj_dir, "data")
 los_dir  <- file.path(proj_dir, "stay_length")
 
 # ── Procesamiento del censo: LOS por servicio (con caché) ─────────────────────
-# Monthly updates: drop  data_cense_update_YYYY_MM.rds  into data/ each month.
-# The app detects them automatically and merges before processing.
-los_cache    <- file.path(data_dir, "data_los_processed.rds")
-cense_src    <- file.path(data_dir, "data_cense_2017_2026.rds")
+# Monthly updates: drop the new month's export into data/cense_updates/, named
+# data_cense_update_YYYY_MM.<rds|xlsx|xls> (e.g. data_cense_update_2026_08.xlsx
+# — the raw hospital-system export works as-is, no conversion to .rds needed).
+# The app detects it automatically (by filename pattern) and merges it with
+# the base census before processing. This folder is local-only: it is never
+# part of the shinyapps.io deploy manifest (see LOS_FILES in
+# scripts/deploy_app.R) — only the already-processed data_los_processed.rds
+# that comes out of this block gets deployed.
+los_cache        <- file.path(data_dir, "data_los_processed.rds")
+cense_src        <- file.path(data_dir, "data_cense_2017_2026.rds")
+cense_updates_dir <- file.path(data_dir, "cense_updates")
 
 cense_update_files <- sort(list.files(
-  data_dir,
-  pattern    = "^data_cense_update_\\d{4}_\\d{2}\\.rds$",
+  cense_updates_dir,
+  pattern    = "^data_cense_update_\\d{4}_\\d{2}\\.(rds|xlsx|xls)$",
   full.names = TRUE
 ))
 
@@ -484,13 +491,61 @@ data_los_full <- data_los_serv %>%
   mutate(cuenta = as.character(cuenta)) %>%
   left_join(grd_keys, by = c("cuenta" = "numero_de_cuenta"))
 
-# ── Estancias inactivas (2024-2026, pestaña separada) ─────────────────────────
-ei_path <- file.path(los_dir,
-                      "estancia_inactiva_costo_2026",
-                      "estancia_inactiva.xlsx")
+# ── Selección de insumos en supplies/ ────────────────────────────────────────
+# El libro de estancias inactivas llega con prefijo numérico creciente cada mes
+# (6_Table_… JUN, 7_Table_… JUL, 8_Table_… AGO …). Antes el patrón era "^6_Table"
+# fijo, así que la pestaña se quedó congelada en junio aunque llegara julio.
+# Ahora se elige SIEMPRE el prefijo numérico más alto.
+#
+# Además se prefiere una copia de nombre ASCII fijo si existe: los nombres
+# originales llevan acentos ("…Gráf…", "KPI´S…") que no sobreviven el viaje
+# macOS -> bundle -> Linux, y en shinyapps.io list.files() no los encontraba.
+# El despliegue envía sólo las copias ASCII; en local se usa el original más
+# nuevo. Ver scripts/refresh_los_supplies.R, que regenera esas copias.
+#
+# Se resuelve AQUÍ (y no más abajo, junto a Giro Cama) porque data_ei también
+# consume el libro mensual: antes leía una copia congelada en stay_length/ que
+# se quedó en abr-2026 mientras el resto de la app ya iba en jul-2026.
+pick_supply <- function(sup_dir, fixed_name, pattern, numeric_prefix = FALSE) {
+  fixed <- file.path(sup_dir, fixed_name)
+  if (file.exists(fixed)) return(fixed)
 
-data_ei <- rio::import(ei_path) %>%
+  cands <- list.files(sup_dir, pattern = pattern, full.names = TRUE)
+  cands <- cands[!grepl("^~\\$", basename(cands))]        # ignora locks de Excel
+  if (!length(cands)) return(NA_character_)
+
+  if (numeric_prefix) {
+    n <- suppressWarnings(as.integer(sub("^([0-9]+)_.*$", "\\1", basename(cands))))
+    if (all(is.na(n))) return(cands[which.max(file.mtime(cands))])
+    return(cands[which.max(replace(n, is.na(n), -1L))])   # prefijo más alto
+  }
+  cands[which.max(file.mtime(cands))]                      # el más reciente
+}
+
+sup_dir  <- file.path(proj_dir, "supplies")
+kpi_file <- pick_supply(sup_dir, "KPI_giro_cama.xlsx", "KPI")
+bd_file  <- pick_supply(sup_dir, "estancias_inactivas_actual.xlsx",
+                        "^[0-9]+_Table.*\\.xlsx$", numeric_prefix = TRUE)
+
+# ── Estancias inactivas (2024-2026, pestaña separada) ─────────────────────────
+# Fuente única: la hoja "BD trabajo (3)" del libro mensual, la misma que
+# alimenta data_bd_inac y ei_cost. El archivo antiguo de stay_length/ queda
+# sólo como respaldo por si el libro mensual no está disponible; no se
+# actualiza cada mes y arrastraba la pestaña varios meses atrás.
+ei_fallback <- file.path(los_dir, "estancia_inactiva_costo_2026",
+                         "estancia_inactiva.xlsx")
+
+data_ei_raw <- if (!is.na(bd_file) && file.exists(bd_file)) {
+  message("[LOS-App] Est.Inact. (data_ei) <- ", basename(bd_file), " / BD trabajo (3)")
+  suppressMessages(readxl::read_excel(bd_file, sheet = "BD trabajo (3)"))
+} else {
+  message("[LOS-App] Est.Inact. (data_ei) <- respaldo stay_length/ (puede estar desactualizado)")
+  rio::import(ei_fallback)
+}
+
+data_ei <- data_ei_raw %>%
   clean_names() %>%
+  filter(!is.na(identificacion)) %>%
   mutate(
     across(where(is.logical), ~ NA_character_),
     fecha     = as.Date(fecha),
@@ -520,15 +575,22 @@ data_ei <- rio::import(ei_path) %>%
     causa_principal = str_trim(str_replace(
       as.character(causa_principal), "^\\d+\\.\\s*", "")),
     identificacion = as.character(identificacion),
+    # El libro EI trae el documento con prefijo de tipo ("CC 14870112"); GRD lo
+    # guarda sin prefijo. Sin normalizar, el cruce caía a ~4 % en 2024 y a 0 %
+    # en 2025-2026 — por eso el panel de CACI salía vacío. Se normaliza a sólo
+    # dígitos en ambos lados (mismo criterio que doc_clean en data_bd_inac).
+    doc_norm = str_remove_all(identificacion, "[^0-9]"),
     valor_total_estancia_inactiva = suppressWarnings(
       as.numeric(valor_total_estancia_inactiva))
   )
 
-# Enrich EI with GRD admissions data (join on patient documento × año)
-grd_for_ei <- data_grd_base %>%
-  filter(!is.na(documento), documento != "") %>%
-  mutate(documento = as.character(documento)) %>%
-  group_by(documento, año) %>%
+# Enrich EI with GRD admissions data (join on normalised documento × año)
+grd_ei_norm <- data_grd_base %>%
+  mutate(doc_norm = str_remove_all(as.character(documento), "[^0-9]")) %>%
+  filter(doc_norm != "")
+
+grd_for_ei <- grd_ei_norm %>%
+  group_by(doc_norm, año) %>%
   summarise(
     n_admisiones_grd = n(),
     caci_ei          = paste(sort(unique(na.omit(caci))), collapse = ", "),
@@ -539,8 +601,26 @@ grd_for_ei <- data_grd_base %>%
   ) %>%
   mutate(caci_ei = if_else(caci_ei == "", NA_character_, caci_ei))
 
+# Respaldo a nivel paciente: una estancia inactiva de enero puede corresponder a
+# una admisión de diciembre del año anterior. Los conteos del año (admisiones,
+# LOS, facturación) siguen siendo del año; sólo el CACI y el diagnóstico —que
+# son atributos del paciente— caen a este respaldo cuando no hay ingreso del
+# mismo año. Recupera ~5 pp de cobertura en 2026.
+grd_for_ei_pac <- grd_ei_norm %>%
+  group_by(doc_norm) %>%
+  summarise(
+    caci_pac = paste(sort(unique(na.omit(caci))), collapse = ", "),
+    diag_pac = first(na.omit(diagnostico_egreso_principal)),
+    .groups  = "drop"
+  ) %>%
+  mutate(caci_pac = if_else(caci_pac == "", NA_character_, caci_pac))
+
 data_ei <- data_ei %>%
-  left_join(grd_for_ei, by = c("identificacion" = "documento", "año" = "año"))
+  left_join(grd_for_ei,     by = c("doc_norm", "año")) %>%
+  left_join(grd_for_ei_pac, by = "doc_norm") %>%
+  mutate(caci_ei = coalesce(caci_ei, caci_pac),
+         diag_ei = coalesce(diag_ei, diag_pac)) %>%
+  select(-caci_pac, -diag_pac)
 
 # ── Opciones para selectores UI ───────────────────────────────────────────────
 year_choices_los <- sort(unique(na.omit(data_los_serv$year)), decreasing = TRUE)
@@ -555,40 +635,8 @@ mes_choices <- c("Todos los meses" = "0",
 
 # (shinydashboard skin handled via www/styles.css)
 
-# ── Selección de insumos en supplies/ ────────────────────────────────────────
-# El libro de estancias inactivas llega con prefijo numérico creciente cada mes
-# (6_Table_… JUN, 7_Table_… JUL, 8_Table_… AGO …). Antes el patrón era "^6_Table"
-# fijo, así que la pestaña se quedó congelada en junio aunque llegara julio.
-# Ahora se elige SIEMPRE el prefijo numérico más alto.
-#
-# Además se prefiere una copia de nombre ASCII fijo si existe: los nombres
-# originales llevan acentos ("…Gráf…", "KPI´S…") que no sobreviven el viaje
-# macOS -> bundle -> Linux, y en shinyapps.io list.files() no los encontraba.
-# El despliegue envía sólo las copias ASCII; en local se usa el original más
-# nuevo. Ver scripts/refresh_los_supplies.R, que regenera esas copias.
-pick_supply <- function(sup_dir, fixed_name, pattern, numeric_prefix = FALSE) {
-  fixed <- file.path(sup_dir, fixed_name)
-  if (file.exists(fixed)) return(fixed)
-
-  cands <- list.files(sup_dir, pattern = pattern, full.names = TRUE)
-  cands <- cands[!grepl("^~\\$", basename(cands))]        # ignora locks de Excel
-  if (!length(cands)) return(NA_character_)
-
-  if (numeric_prefix) {
-    n <- suppressWarnings(as.integer(sub("^([0-9]+)_.*$", "\\1", basename(cands))))
-    if (all(is.na(n))) return(cands[which.max(file.mtime(cands))])
-    return(cands[which.max(replace(n, is.na(n), -1L))])   # prefijo más alto
-  }
-  cands[which.max(file.mtime(cands))]                      # el más reciente
-}
-
 # ── Giro Cama: datos KPI (2024-2026) ─────────────────────────────────────────
 tryCatch({
-  sup_dir  <- file.path(proj_dir, "supplies")
-  kpi_file <- pick_supply(sup_dir, "KPI_giro_cama.xlsx", "KPI")
-  bd_file  <- pick_supply(sup_dir, "estancias_inactivas_actual.xlsx",
-                          "^[0-9]+_Table.*\\.xlsx$", numeric_prefix = TRUE)
-
   if (is.na(kpi_file)) stop("No se encontró el libro KPI en supplies/")
   if (is.na(bd_file))  stop("No se encontró ningún libro <n>_Table_… en supplies/")
   message("[LOS-App] Giro Cama  <- ", basename(kpi_file))
@@ -1072,6 +1120,21 @@ tryCatch({
   ei_cost <<- NULL
 })
 
+# Sello de versión, visible en el tab Est. Inactivas y en el log de arranque.
+# Refrescar el navegador NO vuelve a ejecutar global.R: si el sello o la
+# cobertura CACI de abajo no coinciden con lo esperado, el proceso de R es viejo.
+EI_BUILD <- "2026-09-21 · filtro año/mes + cruce CACI normalizado"
+
 message("[LOS-App] global.R listo. Años: ",
         paste(sort(year_choices_los), collapse = ", "),
         " | Servicios: ", paste(serv_choices, collapse = ", "))
+message("[LOS-App] build: ", EI_BUILD)
+local({
+  cob <- data_ei %>%
+    filter(!is.na(año)) %>%
+    group_by(año) %>%
+    summarise(pct = 100 * mean(!is.na(caci_ei)), .groups = "drop")
+  message("[LOS-App] Cobertura CACI en estancias inactivas: ",
+          paste(sprintf("%d %.1f%%", cob$año, cob$pct), collapse = " · "),
+          "   (0 % = cruce roto, revisar normalización del documento)")
+})

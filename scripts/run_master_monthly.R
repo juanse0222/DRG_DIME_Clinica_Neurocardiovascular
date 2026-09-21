@@ -50,7 +50,7 @@
 #               los meses ya consolidados se absorben por anti-join.
 #
 # 5) MORTALIDAD MENSUAL                                      [Bloque 2]
-#    Guardar  : ~/Desktop/DIME/Documentos EDI/2. Mortalidad/DIME_mortality_2026/
+#    Guardar  : ~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/DIME/Documentos EDI/2. Mortalidad/DIME_mortality_2026/
 #                 <Month>_<año>/DIME_mortality_<Month>_<año>.xlsx
 #    Ejemplo  : .../July_2026/DIME_mortality_July_2026.xlsx
 #    Nota     : el mes va en inglés y capitalizado.
@@ -107,7 +107,7 @@ censo_latest <- if (length(censo_files))
   censo_files[which.max(file.mtime(censo_files))] else NA_character_
 
 mort_xlsx <- path.expand(file.path(
-  "~/Desktop/DIME/Documentos EDI/2. Mortalidad/DIME_mortality_2026",
+  "~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/DIME/Documentos EDI/2. Mortalidad/DIME_mortality_2026",
   paste0(month_en_cap, "_", current_year),
   paste0("DIME_mortality_", month_en_cap, "_", current_year, ".xlsx")))
 
@@ -177,7 +177,7 @@ tryCatch({
     note("Mortalidad", NA, paste("XLSX del mes no encontrado:", basename(mort_xlsx)))
     cat("[BLOQUE 2] Sin archivo del mes — se omite.\n")
   } else {
-    registry <- path.expand(paste0("~/Desktop/DIME/Documentos EDI/2. Mortalidad/",
+    registry <- path.expand(paste0("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/DIME/Documentos EDI/2. Mortalidad/",
                                    "DIME_mortality_2025/data/mortality_dime_2017_2026.rds"))
     step("Anexando defunciones al registro histórico")
     data_new <- import(mort_xlsx) %>% clean_names()
@@ -199,7 +199,7 @@ tryCatch({
     # que su quit() muera dentro del subproceso y no aquí.
     old_wd <- getwd()
     on.exit(setwd(old_wd), add = TRUE)
-    setwd(path.expand("~/Desktop/DIME/Documentos EDI/2. Mortalidad/mortality_analysis"))
+    setwd(path.expand("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/DIME/Documentos EDI/2. Mortalidad/mortality_analysis"))
     out <- system2("Rscript", "script/update_monthly.R", stdout = TRUE, stderr = TRUE)
     rc  <- attr(out, "status"); rc <- if (is.null(rc)) 0L else rc
     cat(paste0("  | ", out, collapse = "\n"), "\n")
@@ -247,7 +247,18 @@ tryCatch({
       if (file.exists(f)) file.copy(f, here("shiny_los", "data", basename(f)), overwrite = TRUE)
 
     step("Actualizando insumos supplies/ (copias ASCII, prefijo más alto)")
-    system2("Rscript", here("scripts", "refresh_los_supplies.R"))
+    # El código de salida SÍ importa: si falta el libro original de algún insumo
+    # el script deja la copia ASCII del mes anterior y la app sigue publicando
+    # datos viejos sin error visible. No se aborta el bloque (los demás insumos
+    # sí se refrescaron y la app funciona), pero tiene que verse.
+    rc_sup <- system2("Rscript", here("scripts", "refresh_los_supplies.R"))
+    if (!identical(rc_sup, 0L)) {
+      cat("\n  ", strrep("!", 68), "\n", sep = "")
+      cat("   AVISO: refresh_los_supplies.R terminó con código ", rc_sup, ".\n", sep = "")
+      cat("   Al menos una copia ASCII quedó SIN refrescar (ver el detalle arriba).\n")
+      cat("   La app se desplegará con ese insumo del mes ANTERIOR.\n")
+      cat("   ", strrep("!", 68), "\n\n", sep = "")
+    }
 
     step("Reconstruyendo los_cost_compact.rds")
     source(here("shiny_los", "prep_data.R"))
@@ -322,7 +333,7 @@ try({
 
 # Mortalidad
 try({
-  r <- readRDS(path.expand(paste0("~/Desktop/DIME/Documentos EDI/2. Mortalidad/",
+  r <- readRDS(path.expand(paste0("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/DIME/Documentos EDI/2. Mortalidad/",
                                   "mortality_analysis/data/results_2.rds")))
   rm_ <- floor_date(as.Date(r$fecha_ingreso), "month")
   addrow("Mortalidad", sprintf("Ingresos %s", format(report_date, "%Y-%m")),

@@ -71,6 +71,54 @@ EI_MAP_SERVICIO <- c(
   "PISO HOSP" = "Hospitalización", "URGENCIAS OBS" = "Hospitalización"
 )
 
+# ── Agregador reutilizable ────────────────────────────────────────────────────
+# Se expone a nivel global (y no dentro del local()) porque la app lo vuelve a
+# llamar sobre el detalle YA FILTRADO por período: antes los paneles "Impacto
+# por EAPB" y "Causas IPS/EAPB" mostraban siempre el acumulado 2024-2026,
+# ignorando el selector de año. Un solo agregador garantiza que el total y el
+# período usen exactamente la misma aritmética.
+ei_build_aggs <- function(d, rate_col) {
+  r <- d[[rate_col]]
+  x <- d %>% mutate(c_ips = dias_ips * r, c_eps = dias_eps * r,
+                    c_pac = dias_pac * r, c_tot = dias_total * r)
+
+  mensual <- x %>% group_by(periodo) %>%
+    summarise(casos = n(),
+              dias_ips = sum(dias_ips), dias_eps = sum(dias_eps),
+              costo_ips = sum(c_ips), costo_eps = sum(c_eps),
+              costo_total = sum(c_tot), .groups = "drop") %>% arrange(periodo)
+
+  list(
+    mensual  = mensual,
+    por_eapb = x %>% group_by(eapb) %>%
+      summarise(casos = n(), dias_ips = sum(dias_ips), dias_eps = sum(dias_eps),
+                costo_ips = sum(c_ips), costo_eps = sum(c_eps),
+                costo_total = sum(c_tot), .groups = "drop") %>% arrange(desc(costo_total)),
+    por_causa_ips = x %>% filter(dias_ips > 0, !is.na(causa_1_de_estancia_inactiva_por_ips)) %>%
+      group_by(causa = stringr::str_squish(causa_1_de_estancia_inactiva_por_ips)) %>%
+      summarise(casos = n(), dias = sum(dias_ips), costo = sum(c_ips), .groups = "drop") %>%
+      arrange(desc(costo)),
+    por_causa_eps = x %>% filter(dias_eps > 0, !is.na(causa_1_de_estancia_inactiva_por_eps)) %>%
+      group_by(causa = stringr::str_squish(causa_1_de_estancia_inactiva_por_eps)) %>%
+      summarise(casos = n(), dias = sum(dias_eps), costo = sum(c_eps), .groups = "drop") %>%
+      arrange(desc(costo)),
+    resumen = list(
+      n_meses         = nrow(mensual),
+      periodo_rango   = if (nrow(mensual))
+                          paste(format(range(mensual$periodo), "%Y-%m"), collapse = " a ")
+                        else NA_character_,
+      mediana_mes_ips = median(mensual$costo_ips, na.rm = TRUE),
+      mediana_mes_eps = median(mensual$costo_eps, na.rm = TRUE),
+      mediana_mes_total = median(mensual$costo_total, na.rm = TRUE),
+      p25_mes_ips     = unname(quantile(mensual$costo_ips, .25, na.rm = TRUE)),
+      p75_mes_ips     = unname(quantile(mensual$costo_ips, .75, na.rm = TRUE)),
+      dias_ips_total  = sum(x$dias_ips), dias_eps_total = sum(x$dias_eps),
+      costo_ips_total = sum(x$c_ips), costo_eps_total = sum(x$c_eps),
+      costo_total     = sum(x$c_tot)
+    )
+  )
+}
+
 ei_cost <- local({
 
   src <- if (exists("bd_file") && !is.na(bd_file) && file.exists(bd_file)) bd_file else NA_character_
@@ -89,6 +137,18 @@ ei_cost <- local({
       fecha_d  = suppressWarnings(as.Date(fecha)),
       periodo  = lubridate::floor_date(fecha_d, "month"),
       anio     = lubridate::year(fecha_d),
+      mes_n    = lubridate::month(fecha_d),
+      # Mismo criterio que data_ei/data_bd_inac, para que el filtro de
+      # Responsable de la pestaña se aplique igual en los tres bloques.
+      responsable = dplyr::case_when(
+        stringr::str_detect(dplyr::coalesce(clasificacion_de_la_estancia_inactiva, ""),
+                            stringr::regex("IPS",      ignore_case = TRUE)) ~ "IPS",
+        stringr::str_detect(dplyr::coalesce(clasificacion_de_la_estancia_inactiva, ""),
+                            stringr::regex("EPS",      ignore_case = TRUE)) ~ "EPS",
+        stringr::str_detect(dplyr::coalesce(clasificacion_de_la_estancia_inactiva, ""),
+                            stringr::regex("paciente", ignore_case = TRUE)) ~ "Paciente",
+        TRUE ~ "No clasificado"
+      ),
       eapb     = dplyr::coalesce(stringr::str_squish(eps), "SIN DATO"),
       idn      = norm(identificacion),
       dias_ips = dplyr::coalesce(num(total_dias_de_estancia_por_ips), 0),
@@ -143,52 +203,12 @@ ei_cost <- local({
     )
 
   # ── 3. Agregados para AMBAS bases ──────────────────────────────────────────
-  agg <- function(df, rate_col) {
-    r <- df[[rate_col]]
-    df %>% mutate(c_ips = dias_ips * r, c_eps = dias_eps * r,
-                  c_pac = dias_pac * r, c_tot = dias_total * r)
-  }
-
-  build <- function(rate_col) {
-    x <- agg(d, rate_col)
-    mensual <- x %>% group_by(periodo) %>%
-      summarise(casos = n(),
-                dias_ips = sum(dias_ips), dias_eps = sum(dias_eps),
-                costo_ips = sum(c_ips), costo_eps = sum(c_eps),
-                costo_total = sum(c_tot), .groups = "drop") %>% arrange(periodo)
-    list(
-      mensual  = mensual,
-      por_eapb = x %>% group_by(eapb) %>%
-        summarise(casos = n(), dias_ips = sum(dias_ips), dias_eps = sum(dias_eps),
-                  costo_ips = sum(c_ips), costo_eps = sum(c_eps),
-                  costo_total = sum(c_tot), .groups = "drop") %>% arrange(desc(costo_total)),
-      por_causa_ips = x %>% filter(dias_ips > 0, !is.na(causa_1_de_estancia_inactiva_por_ips)) %>%
-        group_by(causa = stringr::str_squish(causa_1_de_estancia_inactiva_por_ips)) %>%
-        summarise(casos = n(), dias = sum(dias_ips), costo = sum(c_ips), .groups = "drop") %>%
-        arrange(desc(costo)),
-      por_causa_eps = x %>% filter(dias_eps > 0, !is.na(causa_1_de_estancia_inactiva_por_eps)) %>%
-        group_by(causa = stringr::str_squish(causa_1_de_estancia_inactiva_por_eps)) %>%
-        summarise(casos = n(), dias = sum(dias_eps), costo = sum(c_eps), .groups = "drop") %>%
-        arrange(desc(costo)),
-      resumen = list(
-        n_meses         = nrow(mensual),
-        periodo_rango   = paste(format(range(mensual$periodo), "%Y-%m"), collapse = " a "),
-        mediana_mes_ips = median(mensual$costo_ips, na.rm = TRUE),
-        mediana_mes_eps = median(mensual$costo_eps, na.rm = TRUE),
-        mediana_mes_total = median(mensual$costo_total, na.rm = TRUE),
-        p25_mes_ips     = unname(quantile(mensual$costo_ips, .25, na.rm = TRUE)),
-        p75_mes_ips     = unname(quantile(mensual$costo_ips, .75, na.rm = TRUE)),
-        dias_ips_total  = sum(x$dias_ips), dias_eps_total = sum(x$dias_eps),
-        costo_ips_total = sum(x$c_ips), costo_eps_total = sum(x$c_eps),
-        costo_total     = sum(x$c_tot)
-      )
-    )
-  }
-
+  # `d` lleva anio/mes_n/responsable para que la app pueda filtrar el detalle
+  # por período y volver a llamar ei_build_aggs() con la misma aritmética.
   list(
     detalle   = d,
-    costo     = build("costo_dime"),    # base por defecto
-    tarifa    = build("tarifa_fact"),
+    costo     = ei_build_aggs(d, "costo_dime"),    # base por defecto
+    tarifa    = ei_build_aggs(d, "tarifa_fact"),
     cobertura = d %>% count(origen) %>% mutate(pct = round(100 * n / sum(n), 1)),
     serv_dist = d %>% count(servicio_cama),
     tarifas   = EI_TARIFAS_SOAT_2026
