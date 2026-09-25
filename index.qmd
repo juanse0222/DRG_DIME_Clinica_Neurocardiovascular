@@ -215,6 +215,7 @@ title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
 .accent-mort   { border-top: 4px solid #A569BD; }
 .accent-proa   { border-top: 4px solid #CA6F1E; }
 .accent-los    { border-top: 4px solid #2E86C1; }
+.accent-cv     { border-top: 4px solid #2A9D8F; }
 
 /* ── CACI section ────────────────────────────────────────────────────── */
 .caci-section {
@@ -451,6 +452,7 @@ title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
     <span class="hero-tag">🛏️ Estancias (LOS)</span>
     <span class="hero-tag">💀 Mortalidad Hospitalaria</span>
     <span class="hero-tag">💊 PROA · Antibióticos</span>
+    <span class="hero-tag">🩺 Calidad de Vida EQ-5D-3L</span>
   </div>
 </div>
 
@@ -591,6 +593,38 @@ title: "Portal de Análisis — DIME Clínica Neurocardiovascular"
     <div class="dash-card-footer">
       <span class="dash-card-update">Actualizado jul 2026 · 11 pestañas</span>
       <span class="dash-card-btn" style="background:#CA6F1E;">Abrir →</span>
+    </div>
+  </a>
+
+  <!-- Calidad de Vida EQ-5D-3L -->
+  <a class="dash-card accent-cv"
+     href="https://caci-acv-dime.shinyapps.io/calidad_vida_eq5d/"
+     target="_blank">
+    <div class="dash-card-header">
+      <span class="dash-card-icon">🩺</span>
+      <span class="dash-card-badge badge-live">Interactivo</span>
+      <div class="dash-card-title">Calidad de Vida EQ-5D-3L</div>
+      <div class="dash-card-short">Captura clínica · CACI ACV / SCA · Seguimiento 3-6 meses</div>
+    </div>
+    <div class="dash-card-body">
+      <p class="dash-card-desc">
+        Aplicación de captura para que médicos y enfermería del CACI apliquen el
+        EQ-5D-3L a pacientes con ACV/ECV hemorrágica y Síndrome Coronario Agudo en
+        tres momentos (Ingreso, Egreso, Control 3-6 meses), y visualicen la evolución
+        de calidad de vida asociada a la intervención clínica.
+      </p>
+      <ul class="dash-card-features">
+        <li>Formulario de captura con diagnóstico CIE-10 parametrizado por CACI</li>
+        <li>Autocompletado desde el censo del día (documento, nombre, edad, teléfono)</li>
+        <li>Cálculo automático del índice EQ-5D-3L y escala EVA</li>
+        <li>Indicador institucional: % pacientes con mejoría ≥ 7 pts vs. meta</li>
+        <li>Panel por CACI: evolución por momento, dimensiones y cumplimiento mensual</li>
+        <li>Histórico 2023-2026 migrado (1051 pacientes, 2179 evaluaciones)</li>
+      </ul>
+    </div>
+    <div class="dash-card-footer">
+      <span class="dash-card-update">Actualizado sep 2026 · acceso con usuario y contraseña</span>
+      <span class="dash-card-btn" style="background:#2A9D8F;">Abrir →</span>
     </div>
   </a>
 

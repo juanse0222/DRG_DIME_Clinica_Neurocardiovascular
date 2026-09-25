@@ -1,9 +1,9 @@
 ---
 title: "Análisis CACI Mensual"
 author: "Juan Sebastian Hurtado Zapata"
-format: 
-   ppt:
-editor: visual
+format:
+  html: default
+execute:
   echo: false
   warning: false
 ---

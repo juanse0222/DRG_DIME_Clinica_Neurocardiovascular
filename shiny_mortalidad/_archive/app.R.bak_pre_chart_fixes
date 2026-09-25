@@ -68,33 +68,24 @@ ui <- dashboardPage(
       tabItem(tabName = "global",
         fluidRow(
           valueBox(format(total_egresos_global, big.mark = "."),
-                   "Egresos analizados", icon("hospital"), color = "teal", width = 3),
+                   "Egresos analizados", icon("hospital"), color = "teal", width = 2),
           valueBox(format(total_muertes_global, big.mark = "."),
-                   "Muertes totales", icon("heart"), color = "red", width = 3),
+                   "Muertes totales", icon("heart"), color = "red", width = 2),
           valueBox(paste0(tasa_global, "%"),
-                   "Tasa bruta global (%)", icon("percent"), color = "orange", width = 3),
+                   "Tasa bruta global (%)", icon("percent"), color = "orange", width = 2),
           valueBox(paste0(round(tm_ref_global, 1), "%"),
-                   "Tasa ref. poblacion CV (%)", icon("heart-pulse"), color = "blue", width = 3)
+                   "Tasa ref. poblacion CV (%)", icon("heart-pulse"), color = "blue", width = 2),
+          valueBox(if (is.na(hsmr_actual_val)) "—" else format(hsmr_actual_val, nsmall = 1),
+                   paste("TMAR", ano_actual), icon("scale-balanced"),
+                   color = if (identical(hsmr_color_g, "danger")) "red" else "green", width = 2),
+          valueBox(if (is.na(hsmr_esp_actual)) "—" else format(hsmr_esp_actual, nsmall = 1),
+                   paste("Muertes esperadas", ano_actual), icon("calculator"),
+                   color = "light-blue", width = 2)
         ),
         fluidRow(
-          column(12,
-            tags$div(
-              style = "background:#fff; border-radius:6px; padding:8px 16px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,.08);",
-              tags$strong(textOutput("lbl_anio_g", inline = TRUE)),
-              tags$span(" (siguen el rango de años de la barra lateral; se muestra el año superior del rango)",
-                         style = "color:#666; font-size:12px;")
-            )
-          )
-        ),
-        fluidRow(
-          valueBoxOutput("vb_tmar_g",  width = 4),
-          valueBoxOutput("vb_esp_g",   width = 4),
-          valueBoxOutput("vb_oe_g",    width = 4)
-        ),
-        fluidRow(
-          box(title = tagList(icon("calendar"), " TMAR mensual con IC 95% — año superior del rango lateral"),
+          box(title = tagList(icon("chart-line"), " TMAR anual con IC 95%"),
               solidHeader = TRUE, status = "info", width = 7,
-              plotlyOutput("plot_hsmr_mes_g", height = "300px")),
+              plotlyOutput("plot_hsmr_anual", height = "340px")),
           box(title = tagList(icon("chart-pie"), " Distribucion acumulada de muertes"),
               solidHeader = TRUE, status = "info", width = 5,
               plotlyOutput("plot_dist_global_acum", height = "340px"))
@@ -103,9 +94,9 @@ ui <- dashboardPage(
           box(title = tagList(icon("chart-bar"), " Muertes por grupo diagnostico (anual)"),
               solidHeader = TRUE, status = "info", width = 8,
               plotlyOutput("plot_dist_global", height = "340px")),
-          box(title = tagList(icon("chart-line"), " TMAR anual con IC 95%"),
+          box(title = tagList(icon("calendar"), paste(" TMAR mensual —", ano_actual)),
               solidHeader = TRUE, status = "info", width = 4,
-              plotlyOutput("plot_hsmr_anual", height = "300px"))
+              plotlyOutput("plot_hsmr_mes_g", height = "340px"))
         ),
         fluidRow(
           box(title = tagList(icon("grip"), " Prevalencia de comorbilidades en fallecidos (global)"),
@@ -329,70 +320,21 @@ server <- function(input, output, session) {
   })
 
   # ── Tab 0: Mortalidad Global HSMR ─────────────────────────────────────────
-  # El año que muestran estos 3 indicadores y el gráfico mensual es el
-  # extremo SUPERIOR del rango de años de la barra lateral (input$yr_range),
-  # ya que TMAR/O:E son métricas de un solo año, no de un rango.
-  anio_g <- reactive({
-    req(yrs())
-    yrs()[2]
-  })
-
-  fila_anio_g <- reactive({
-    hsmr_anual %>% filter(año == anio_g())
-  })
-
-  output$lbl_anio_g <- renderText({
-    paste("Año de análisis:", anio_g())
-  })
-
-  output$vb_tmar_g <- renderValueBox({
-    f <- fila_anio_g()
-    val <- if (nrow(f) == 0 || is.na(f$HSMR[1])) "—" else format(f$HSMR[1], nsmall = 1)
-    col <- if (nrow(f) > 0 && !is.na(f$HSMR[1]) && f$HSMR[1] > 100) "red" else "green"
-    valueBox(val, paste("TMAR", anio_g()), icon("scale-balanced"), color = col)
-  })
-
-  output$vb_esp_g <- renderValueBox({
-    f <- fila_anio_g()
-    val <- if (nrow(f) == 0 || is.na(f$Esperado[1])) "—" else format(f$Esperado[1], nsmall = 1)
-    valueBox(val, paste("Muertes esperadas", anio_g()), icon("calculator"), color = "light-blue")
-  })
-
-  output$vb_oe_g <- renderValueBox({
-    f <- fila_anio_g()
-    if (nrow(f) == 0 || is.na(f$HSMR[1])) {
-      val    <- "—"
-      ic_txt <- ""
-      col    <- "green"
-    } else {
-      val    <- sprintf("%.2f", f$HSMR[1] / 100)
-      ic_txt <- if (is.na(f$LI[1]) || is.na(f$LS[1])) "" else
-                  sprintf("IC 95%% %.2f–%.2f", f$LI[1] / 100, f$LS[1] / 100)
-      col    <- if (f$HSMR[1] > 100) "red" else "green"
-    }
-    valueBox(
-      val,
-      tagList(paste("Razon Observado/Esperado (O/E)", anio_g()),
-              tags$br(), tags$small(ic_txt)),
-      icon("scale-balanced"), color = col
-    )
-  })
-
   output$plot_hsmr_anual <- renderPlotly({
     if (is.null(hsmr_anual) || nrow(hsmr_anual) == 0) return(plotly_empty())
     df_h <- hsmr_anual %>% filter(año >= yrs()[1], año <= yrs()[2])
     if (nrow(df_h) == 0) return(plotly_empty())
-    p <- ggplot(df_h, aes(x = año, y = HSMR)) +
-      geom_ribbon(aes(ymin = LI, ymax = LS), fill = "gray50", alpha = 0.3, color = NA) +
+    p <- ggplot(df_h, aes(x = año, y = HSMR,
+                                 text = paste0("Año: ", año,
+                                               "<br>TMAR: ", HSMR,
+                                               "<br>IC 95%: [", LI, " – ", LS, "]",
+                                               "<br>Obs: ", Observado,
+                                               " | Esp: ", Esperado,
+                                               "<br>Egresos: ", format(Egresos, big.mark = ".")))) +
+      geom_ribbon(aes(ymin = LI, ymax = LS), fill = "#1565c0", alpha = 0.15, color = NA) +
       geom_hline(yintercept = 100, linetype = "dashed", color = "red", linewidth = 0.9) +
       geom_line(color = "#1565c0", linewidth = 1) +
-      geom_point(aes(text = paste0("Año: ", año,
-                                   "<br>TMAR: ", HSMR,
-                                   "<br>IC 95%: [", LI, " – ", LS, "]",
-                                   "<br>Obs: ", Observado,
-                                   " | Esp: ", Esperado,
-                                   "<br>Egresos: ", format(Egresos, big.mark = "."))),
-                 color = "#1565c0", size = 3) +
+      geom_point(color = "#1565c0", size = 3) +
       scale_x_continuous(breaks = sort(unique(df_h$año))) +
       theme_classic() +
       labs(x = "Año", y = "TMAR (referencia = 100)") +
@@ -431,28 +373,23 @@ server <- function(input, output, session) {
       scale_x_continuous(breaks = sort(unique(df_dg$año))) +
       theme_classic() +
       labs(x = "Año", y = "Muertes", fill = "Grupo") +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "right")
+      theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom")
     ggplotly(p, tooltip = "text") %>%
-      layout(legend = list(orientation = "v", x = 1.02, y = 0.5, xanchor = "left"),
-             margin = list(r = 90),
+      layout(legend = list(orientation = "h", x = 0, y = -0.35),
              plot_bgcolor = "white", paper_bgcolor = "white")
   })
 
   output$plot_hsmr_mes_g <- renderPlotly({
-    df_hm <- hsmr_mensual_todos %>% filter(año == anio_g())
-    if (is.null(df_hm) || nrow(df_hm) == 0) {
-      return(plotly_empty() %>% layout(title = paste("Sin datos para", anio_g())))
+    if (is.null(hsmr_mes_act_g) || nrow(hsmr_mes_act_g) == 0) {
+      return(plotly_empty() %>% layout(title = paste("Sin datos para", ano_actual)))
     }
-    p <- ggplot(df_hm, aes(x = mes_label, y = HSMR, group = 1,
+    p <- ggplot(hsmr_mes_act_g, aes(x = mes_label, y = HSMR,
                                      text = paste0("Mes: ", mes_label,
                                                    "<br>TMAR: ", HSMR,
-                                                   "<br>IC 95%: [", LI, " – ", LS, "]",
                                                    "<br>Obs: ", Observado,
                                                    " / Esp: ", Esperado))) +
-      geom_ribbon(aes(ymin = LI, ymax = LS), fill = "gray50", alpha = 0.3, color = NA) +
+      geom_col(fill = "#1565c0", alpha = 0.8, width = 0.7) +
       geom_hline(yintercept = 100, linetype = "dashed", color = "red", linewidth = 0.8) +
-      geom_line(color = "#1565c0", linewidth = 1) +
-      geom_point(color = "#1565c0", size = 2.5) +
       theme_classic() +
       labs(x = NULL, y = "TMAR") +
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -493,9 +430,8 @@ server <- function(input, output, session) {
     if (is.null(hsmr_anual) || nrow(hsmr_anual) == 0) return(datatable(tibble()))
     df <- hsmr_anual %>%
       filter(año >= yrs()[1], año <= yrs()[2]) %>%
-      mutate(`Razón O/E` = round(HSMR / 100, 2)) %>%
       select(Año = año, Egresos, Observado, Esperado,
-             `Tasa (%)` = Tasa, `Razón O/E`, TMAR = HSMR, `LI 95%` = LI, `LS 95%` = LS) %>%
+             `Tasa (%)` = Tasa, TMAR = HSMR, `LI 95%` = LI, `LS 95%` = LS) %>%
       arrange(Año)
     datatable(df, rownames = FALSE,
               options = list(pageLength = 12, dom = "t", scrollX = TRUE,
@@ -506,9 +442,7 @@ server <- function(input, output, session) {
                   backgroundSize = "100% 80%", backgroundRepeat = "no-repeat",
                   backgroundPosition = "center") %>%
       formatStyle("TMAR",
-                  backgroundColor = styleInterval(100, values = c("#d4edda", "#f8d7da"))) %>%
-      formatStyle("Razón O/E",
-                  backgroundColor = styleInterval(1, values = c("#d4edda", "#f8d7da")))
+                  backgroundColor = styleInterval(100, values = c("#d4edda", "#f8d7da")))
   })
 
   # ── Tab 1: Resumen Acumulado ───────────────────────────────────────────────

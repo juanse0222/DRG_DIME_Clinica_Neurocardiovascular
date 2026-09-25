@@ -6,7 +6,7 @@
 
 source("global.R")
 
-SERV_CORE <- c("UCI", "UCIN", "PISO HOSP")
+SERV_CORE <- c("UCI", "UCIN", "PISO HOSP", "Extensión Hospitalización")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # UI
@@ -556,12 +556,21 @@ ui <- dashboardPage(
                                        setNames(as.character(ei_year_choices),
                                                 ei_year_choices)),
                           selected = "0"),
+              selectInput("ei_mes", "Mes", choices = mes_choices, selected = "0"),
               selectInput("ei_resp", "Responsable",
                           choices  = c("Todos" = "0",
                                        "IPS" = "IPS", "EPS" = "EPS", "Paciente" = "Paciente"),
                           selected = "0"),
-              tags$small(tags$em("Datos 2024–2026."), style = "color:#6c757d;")),
+              tags$small(HTML(paste0(
+                "<em>Datos 2024–2026.</em><br>Los filtros aplican a <b>todos</b> ",
+                "los indicadores, tablas y gráficos de esta pestaña.<br>",
+                # Sello de versión: si esta línea no aparece, el proceso de R
+                # está sirviendo código viejo (refrescar el navegador NO recarga
+                # global.R — hay que detener y relanzar la app).
+                "<span style='color:#adb5bd'>build ", EI_BUILD, "</span>")),
+                style = "color:#6c757d;")),
           box(solidHeader = FALSE, width = 9,
+              uiOutput("ei_periodo_txt"),
               uiOutput("kpi_ei"))
         ),
 
@@ -3175,18 +3184,58 @@ server <- function(input, output, session) {
   # ══════════════════════════════════════════════════════════════════════════
   # Tab 7 · Estancias Inactivas
   # ══════════════════════════════════════════════════════════════════════════
-  ei_filt <- reactive({
-    df  <- data_ei
-    yr  <- as.integer(input$ei_yr)
-    rsp <- input$ei_resp
-    if (yr  > 0)    df <- df %>% filter(año == yr)
-    if (!is.null(rsp) && rsp != "0") df <- df %>% filter(responsable == rsp)
-    df
+  # Selección de período. Se calcula UNA vez y la consumen los tres bloques de
+  # la pestaña (registros, costo y CACI) para que no puedan desincronizarse.
+  ei_sel <- reactive({
+    list(
+      yr  = if (is.null(input$ei_yr))  0L else as.integer(input$ei_yr),
+      mes = if (is.null(input$ei_mes)) 0L else as.integer(input$ei_mes),
+      rsp = if (is.null(input$ei_resp)) "0" else input$ei_resp
+    )
   })
+
+  # Aplica año / mes / responsable a cualquier tabla con esas columnas.
+  ei_aplicar_filtro <- function(df, col_anio, col_mes, col_resp) {
+    s <- ei_sel()
+    if (s$yr  > 0) df <- df %>% filter(.data[[col_anio]] == s$yr)
+    if (s$mes > 0) df <- df %>% filter(.data[[col_mes]]  == s$mes)
+    if (s$rsp != "0") df <- df %>% filter(.data[[col_resp]] == s$rsp)
+    df
+  }
+
+  ei_periodo_label <- reactive({
+    s <- ei_sel()
+    yr_txt <- if (s$yr > 0) as.character(s$yr) else "2024–2026"
+    if (s$mes > 0) paste(meses_full[s$mes], yr_txt) else yr_txt
+  })
+
+  output$ei_periodo_txt <- renderUI({
+    s <- ei_sel()
+    rsp_txt <- if (s$rsp != "0") paste0(" · responsable: <b>", s$rsp, "</b>") else ""
+    HTML(paste0("<p style='margin:0 0 8px 2px;color:#6c757d;font-size:13px;'>",
+                "Período: <b>", ei_periodo_label(), "</b>", rsp_txt, "</p>"))
+  })
+
+  ei_filt <- reactive({
+    ei_aplicar_filtro(data_ei, "año", "mes_n", "responsable")
+  })
+
+  # Un mes + un responsable concretos pueden no tener registros. Antes esto
+  # dejaba recuadros en blanco sin explicación; ahora se dice explícitamente.
+  ei_msg_vacio <- function() {
+    tags$p(paste0("Sin registros de estancia inactiva para ", ei_periodo_label(),
+                  if (ei_sel()$rsp != "0") paste0(" · ", ei_sel()$rsp) else "", "."),
+           style = "color:#6c757d;margin:12px 4px;")
+  }
+  ei_plot_vacio <- function() {
+    plotly_empty() %>%
+      layout(title = list(text = paste0("Sin registros en ", ei_periodo_label()),
+                          font = list(size = 12)))
+  }
 
   output$kpi_ei <- renderUI({
     df <- ei_filt()
-    req(nrow(df) > 0)
+    if (nrow(df) == 0) return(ei_msg_vacio())
     n_con_grd  <- sum(!is.na(df$n_admisiones_grd))
     valor_tot  <- sum(df$valor_total_estancia_inactiva, na.rm = TRUE)
     dias_ips   <- sum(suppressWarnings(as.numeric(df$total_dias_de_estancia_por_ips)), na.rm = TRUE)
@@ -3237,40 +3286,68 @@ server <- function(input, output, session) {
   # ══════════════════════════════════════════════════════════════════════════
   # Bloque de agregados según la base elegida (costo DIME | tarifa facturada).
   # Ambas se precalculan en inactive_stay_cost.R; aquí sólo se conmuta.
-  ei_base <- reactive({
-    req(!is.null(ei_cost))
+  # Nombre de la columna de tarifa según la base elegida.
+  ei_rate_col <- reactive({
     b <- if (is.null(input$ei_base)) "costo" else input$ei_base
-    ei_cost[[b]]
+    if (b == "costo") "costo_dime" else "tarifa_fact"
   })
 
+  # Detalle fila a fila YA FILTRADO por período y responsable.
+  ei_det <- reactive({
+    req(!is.null(ei_cost))
+    ei_aplicar_filtro(ei_cost$detalle, "anio", "mes_n", "responsable")
+  })
+
+  # Agregados recalculados sobre el período elegido. Antes esto devolvía el
+  # objeto precalculado ei_cost[[b]], que cubre SIEMPRE 2024-2026: por eso
+  # "Impacto por EAPB" y las dos gráficas de causas mostraban el acumulado
+  # histórico aunque el usuario hubiera elegido un año.
+  ei_base <- reactive({
+    d <- ei_det(); req(nrow(d) > 0)
+    ei_build_aggs(d, ei_rate_col())
+  })
+
+  # Serie mensual para el gráfico de evolución: respeta año y responsable, pero
+  # NO el mes — una serie temporal de un solo punto no es una serie. El mes
+  # elegido se resalta en el gráfico.
   ei_costo_mensual <- reactive({
-    m <- ei_base()$mensual
-    if (!is.null(input$ei_yr) && input$ei_yr != "0")
-      m <- m %>% filter(lubridate::year(periodo) == as.integer(input$ei_yr))
-    m
+    req(!is.null(ei_cost))
+    s <- ei_sel()
+    d <- ei_cost$detalle
+    if (s$yr  > 0)    d <- d %>% filter(anio == s$yr)
+    if (s$rsp != "0") d <- d %>% filter(responsable == s$rsp)
+    req(nrow(d) > 0)
+    ei_build_aggs(d, ei_rate_col())$mensual
   })
 
   output$kpi_ei_costo <- renderUI({
     if (is.null(ei_cost))
       return(tags$p("Módulo de costo no disponible (falta el libro de estancias inactivas).",
                     style = "color:#6c757d;"))
-    m <- ei_costo_mensual(); req(nrow(m) > 0)
+    if (nrow(ei_det()) == 0) return(ei_msg_vacio())
+    # Usa el agregado del PERÍODO elegido (año + mes + responsable), no la serie
+    # completa: los indicadores deben cuadrar con las tablas de abajo.
+    m <- ei_base()$mensual; req(nrow(m) > 0)
     # Mediana ENTRE MESES: la serie es corta y un mes atípico desplaza la media.
+    # Con un solo mes seleccionado la mediana ES el valor de ese mes.
+    un_mes  <- nrow(m) == 1
+    pref    <- if (un_mes) "Costo del mes — " else "Mediana mensual — "
     med_ips <- median(m$costo_ips,   na.rm = TRUE)
     med_eps <- median(m$costo_eps,   na.rm = TRUE)
     med_tot <- median(m$costo_total, na.rm = TRUE)
     fluidRow(
-      valueBox(cop(med_ips), "Mediana mensual — IPS (intervenible)",
+      valueBox(cop(med_ips), paste0(pref, "IPS (intervenible)"),
                icon = icon("hospital"), color = "red",    width = 3),
-      valueBox(cop(med_eps), "Mediana mensual — EAPB",
+      valueBox(cop(med_eps), paste0(pref, "EAPB"),
                icon = icon("building-columns"), color = "yellow", width = 3),
-      valueBox(cop(med_tot), "Mediana mensual — total",
+      valueBox(cop(med_tot), paste0(pref, "total"),
                icon = icon("coins"), color = "orange", width = 3),
       # 4º indicador: días, NO el acumulado en pesos. El acumulado ya está en
       # Giro Cama → Impacto Económico (base KPI institucional, 36 meses) y
       # mostrar aquí otro total en pesos con base distinta sólo genera dudas.
       valueBox(format(sum(m$dias_ips, na.rm = TRUE), big.mark = "."),
-               paste0("Días IPS intervenibles (", nrow(m), " meses)"),
+               paste0("Días IPS intervenibles (",
+                      if (un_mes) ei_periodo_label() else paste(nrow(m), "meses"), ")"),
                icon = icon("calendar-xmark"), color = "maroon", width = 3)
     )
   })
@@ -3290,6 +3367,9 @@ server <- function(input, output, session) {
              "Ojo: en hospitalización la tarifa ($176.000) está <i>por debajo</i> ",
              "del costo ($300.000), así que esta base subestima el impacto interno.")
     HTML(paste0(
+      "Indicadores, tabla por EAPB y gráficas de causas calculados sobre el ",
+      "período seleccionado (<b>", ei_periodo_label(), "</b>). Las dos series ",
+      "mensuales conservan los 12 meses del año y resaltan el mes elegido.<br>",
       base_txt,
       "<br>Cada día inactivo se valoriza con la tarifa de <b>su servicio y su ",
       "pagador</b>: el servicio sale de cruzar el censo por documento + mes ",
@@ -3306,14 +3386,19 @@ server <- function(input, output, session) {
 
   output$plot_ei_costo_mes <- renderPlotly({
     req(!is.null(ei_cost)); m <- ei_costo_mensual(); req(nrow(m) > 0)
+    mes_sel <- ei_sel()$mes
     df <- m %>%
       select(periodo, IPS = costo_ips, EAPB = costo_eps) %>%
       tidyr::pivot_longer(-periodo, names_to = "resp", values_to = "costo") %>%
-      mutate(resp = factor(resp, levels = c("EAPB", "IPS")))
-    p <- ggplot(df, aes(periodo, costo / 1e6, fill = resp,
+      mutate(resp = factor(resp, levels = c("EAPB", "IPS")),
+             # Con un mes elegido se conserva la serie del año y se atenúan los
+             # demás meses: una barra sola no deja ver la tendencia.
+             foco = mes_sel == 0 | lubridate::month(periodo) == mes_sel)
+    p <- ggplot(df, aes(periodo, costo / 1e6, fill = resp, alpha = foco,
                         text = paste0(format(periodo, "%Y-%m"), "<br>", resp, ": ",
                                       cop(costo)))) +
       geom_col() +
+      scale_alpha_manual(values = c("TRUE" = 1, "FALSE" = 0.25), guide = "none") +
       scale_fill_manual(values = c("IPS" = "#E15759", "EAPB" = "#F1CE63"), name = NULL) +
       labs(x = NULL, y = "Millones COP") +
       theme_minimal(base_size = 11) +
@@ -3323,6 +3408,9 @@ server <- function(input, output, session) {
 
   output$tabla_ei_costo_eapb <- renderReactable({
     req(!is.null(ei_cost))
+    if (nrow(ei_det()) == 0)
+      return(reactable(tibble(Mensaje = paste0("Sin registros en ", ei_periodo_label())),
+                       compact = TRUE))
     # Se omiten las columnas de días: el costo es proporcional a ellos y con 7
     # columnas en un box de ancho 5 los valores en pesos quedaban truncados.
     # Los días siguen disponibles en el detalle por paciente.
@@ -3350,7 +3438,13 @@ server <- function(input, output, session) {
 
   # Gráfico de causas, parametrizado por responsable
   ei_plot_causa <- function(tbl, fill_col) {
-    req(nrow(tbl) > 0)
+    # Con un mes o un responsable concreto puede no haber causas registradas:
+    # mejor decirlo que dejar el recuadro en blanco.
+    if (is.null(tbl) || nrow(tbl) == 0)
+      return(plotly_empty() %>%
+               layout(title = list(text = paste0("Sin causas registradas en ",
+                                                 ei_periodo_label()),
+                                   font = list(size = 12))))
     df <- tbl %>%
       mutate(causa = stringr::str_trunc(causa, 46)) %>%
       slice_max(costo, n = 8) %>%
@@ -3364,10 +3458,14 @@ server <- function(input, output, session) {
   }
 
   output$plot_ei_causa_ips <- renderPlotly({
-    req(!is.null(ei_cost)); ei_plot_causa(ei_base()$por_causa_ips, "#E15759")
+    req(!is.null(ei_cost))
+    if (nrow(ei_det()) == 0) return(ei_plot_vacio())
+    ei_plot_causa(ei_base()$por_causa_ips, "#E15759")
   })
   output$plot_ei_causa_eps <- renderPlotly({
-    req(!is.null(ei_cost)); ei_plot_causa(ei_base()$por_causa_eps, "#4E79A7")
+    req(!is.null(ei_cost))
+    if (nrow(ei_det()) == 0) return(ei_plot_vacio())
+    ei_plot_causa(ei_base()$por_causa_eps, "#4E79A7")
   })
 
   # ══════════════════════════════════════════════════════════════════════════
@@ -3553,7 +3651,7 @@ server <- function(input, output, session) {
       ungroup() %>%
       arrange(desc(dias_tot)) %>%
       slice_max(order_by = dias_tot, n = 30, with_ties = TRUE)
-    req(nrow(df) > 0)
+    if (nrow(df) == 0) return(ei_plot_vacio())
 
     resp_cols <- c("IPS" = "#E15759", "EPS" = "#F28E2B",
                    "Paciente" = "#4E79A7", "No clasificado" = "grey60")
@@ -3576,7 +3674,15 @@ server <- function(input, output, session) {
   })
 
   output$plot_trend_ei <- renderPlotly({
-    df_long <- ei_filt() %>%
+    # Igual que el gráfico de costo mensual: respeta año y responsable pero
+    # conserva los 12 meses, resaltando el mes elegido. Filtrar la serie a un
+    # solo mes la reduce a una barra y borra justamente la tendencia.
+    s <- ei_sel()
+    base_df <- data_ei
+    if (s$yr  > 0)    base_df <- base_df %>% filter(año == s$yr)
+    if (s$rsp != "0") base_df <- base_df %>% filter(responsable == s$rsp)
+
+    df_long <- base_df %>%
       group_by(año, mes_n) %>%
       summarise(
         registros = n(),
@@ -3589,7 +3695,8 @@ server <- function(input, output, session) {
       tidyr::pivot_longer(c(dias_ips, dias_eps),
                           names_to  = "tipo",
                           values_to = "dias") %>%
-      mutate(tipo = if_else(tipo == "dias_ips", "Días IPS", "Días EPS"))
+      mutate(tipo = if_else(tipo == "dias_ips", "Días IPS", "Días EPS"),
+             foco = s$mes == 0 | mes_n == s$mes)
 
     req(nrow(df_long) > 0)
 
@@ -3599,10 +3706,11 @@ server <- function(input, output, session) {
     escala   <- if (max_reg > 0) max_dias / max_reg else 1
 
     p <- ggplot(df_long, aes(x = fecha)) +
-      geom_col(aes(y = dias, fill = tipo,
+      geom_col(aes(y = dias, fill = tipo, alpha = foco,
                    text = paste0(format(fecha, "%b %Y"), "<br>",
                                  tipo, ": ", dias, " días")),
-               position = "stack", alpha = 0.85) +
+               position = "stack") +
+      scale_alpha_manual(values = c(`FALSE` = 0.25, `TRUE` = 0.85), guide = "none") +
       geom_line(data = df_reg,
                 aes(y = registros * escala,
                     color = "Registros de estancias inactivas"),
@@ -3675,7 +3783,17 @@ server <- function(input, output, session) {
         .groups = "drop"
       )
 
-    grd_eps <- data_grd_base %>%
+    # El denominador debe cubrir el MISMO período que el numerador: comparar los
+    # casos de un mes contra las admisiones de 2024-2026 inflaba "EI / Adm. (%)"
+    # hacia cero. El filtro de Responsable no aplica aquí (es un atributo de la
+    # estancia inactiva, no de la admisión).
+    s <- ei_sel()
+    grd_p <- data_grd_base %>%
+      mutate(mes_adm = month(coalesce(fecha_ingreso, fecha_de_egreso)))
+    if (s$yr  > 0) grd_p <- grd_p %>% filter(año == s$yr)
+    if (s$mes > 0) grd_p <- grd_p %>% filter(mes_adm == s$mes)
+
+    grd_eps <- grd_p %>%
       group_by(EPS = str_to_upper(coalesce(eps, "?"))) %>%
       summarise(`Admisiones GRD` = n(),
                 `LOS med. GRD`   = round(mean(dif_days, na.rm = TRUE), 1),
@@ -3684,7 +3802,9 @@ server <- function(input, output, session) {
     df <- left_join(ei_eps, grd_eps, by = "EPS") %>%
       mutate(`EI / Adm. (%)` = round(`Casos EI` / pmax(`Admisiones GRD`, 1) * 100, 1)) %>%
       arrange(desc(`Días IPS`))
-    req(nrow(df) > 0)
+    if (nrow(df) == 0)
+      return(reactable(tibble(Mensaje = paste0("Sin registros en ", ei_periodo_label())),
+                       compact = TRUE))
 
     reactable(df,
       searchable = TRUE, pagination = TRUE, defaultPageSize = 15,
