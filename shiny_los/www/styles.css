@@ -104,3 +104,49 @@ body,
   border-color:     #3a6080 !important;
 }
 .btn-block { width: 100%; }
+
+/* ── Fullscreen panel ─────────────────────────────────────────────────────── */
+
+.box-fullscreen-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9998;
+  cursor: pointer;
+}
+
+.box.box-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden;
+}
+
+.box.box-fullscreen .box-body {
+  height: calc(100vh - 46px) !important;
+  overflow-y: auto;
+}
+
+.box.box-fullscreen .plotly,
+.box.box-fullscreen .html-widget {
+  height: calc(100vh - 90px) !important;
+  min-height: unset !important;
+}
+
+.box-expand-btn {
+  color: rgba(255, 255, 255, 0.85) !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 6px !important;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 14px;
+}
+.box-expand-btn:hover { color: white !important; }

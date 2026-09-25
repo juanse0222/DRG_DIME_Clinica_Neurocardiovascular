@@ -15,7 +15,22 @@ suppressPackageStartupMessages({
   library(forcats)
 })
 
-mort_dir <- "~/Desktop/DIME/Documentos EDI/2. Mortalidad/mortality_analysis"
+# El proyecto migró de ~/Desktop a iCloud Drive: se resuelve la raíz que exista.
+resolve_dir <- function(rel) {
+  roots <- c("~/Desktop/DIME/Documentos EDI",
+             "~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/DIME/Documentos EDI")
+  hits <- Filter(dir.exists, path.expand(file.path(roots, rel)))
+  if (length(hits) == 0L) stop("No se encontró el directorio: ", rel)
+  hits[[1]]
+}
+resolve_file <- function(rel) {
+  roots <- c("~/Desktop/DIME/Documentos EDI",
+             "~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/DIME/Documentos EDI")
+  hits <- Filter(file.exists, path.expand(file.path(roots, rel)))
+  if (length(hits) == 0L) NA_character_ else hits[[1]]
+}
+
+mort_dir <- resolve_dir("2. Mortalidad/mortality_analysis")
 cat("Loading data from:", mort_dir, "\n")
 
 mes_nombres <- c("Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -26,10 +41,10 @@ mes_nombres <- c("Enero","Febrero","Marzo","Abril","Mayo","Junio",
 # ── 1. Load sources ────────────────────────────────────────────────────────────
 data_raw <- import(file.path(mort_dir, "data/results_2.rds"))
 
-# Try both possible locations for mortality_dime
-mort_path_1 <- file.path(mort_dir, "data/mortality_dime_2017_2026.rds")
-mort_path_2 <- "~/Desktop/DIME/Documentos EDI/2. Mortalidad/DIME_mortality_2025/data/mortality_dime_2017_2026.rds"
-data_mort_total <- import(if (file.exists(mort_path_1)) mort_path_1 else mort_path_2)
+# Primary source: DIME_mortality_2025 (authoritative); fallback: mortality_analysis
+mort_path_1 <- resolve_file("2. Mortalidad/DIME_mortality_2025/data/mortality_dime_2017_2026.rds")
+mort_path_2 <- file.path(mort_dir, "data/mortality_dime_2017_2026.rds")
+data_mort_total <- import(if (!is.na(mort_path_1) && file.exists(mort_path_1)) mort_path_1 else mort_path_2)
 
 data_discharges_total <- import(file.path(mort_dir, "data/data_discharges_hosp.rds"))
 
@@ -353,9 +368,8 @@ comorb_data <- if (length(elix_available) > 0) {
 
 dept_mort <- target_data %>%
   mutate(departamento_actual = case_when(
-    departamento_actual == "UCI"                          ~ "UCI",
-    str_detect(coalesce(departamento_actual,""), "UCIN")          ~ "UCIN",
-    str_detect(coalesce(departamento_actual,""), "HOSPITALIZACION") ~ "HOSPITALIZACIÓN",
+    str_detect(coalesce(departamento_actual,""), "UCI|UCIN|INTENSI") ~ "UCI/Intensivos",
+    str_detect(coalesce(departamento_actual,""), "HOSPITALIZACION")   ~ "HOSPITALIZACIÓN",
     TRUE ~ coalesce(departamento_actual, "OTRO")
   )) %>%
   group_by(Departamento = departamento_actual) %>%
@@ -369,7 +383,311 @@ dept_mort <- target_data %>%
   arrange(desc(Tasa)) %>%
   slice_head(n = 20)
 
-# ── 7. Save ───────────────────────────────────────────────────────────────────
+# ── 7. Otras muertes (deaths outside the 8 monitored GRDs) ───────────────────
+otras_raw <- result_7 %>%
+  filter(!grupo_final %in% target_grds, death == 1L)
+
+if ("caci_2" %in% names(otras_raw)) {
+  otras_raw <- otras_raw %>%
+    mutate(Categoria = case_when(
+      str_detect(tolower(coalesce(caci_2, "")), "covid")     ~ "COVID-19",
+      str_detect(tolower(coalesce(caci_2, "")), "neurocard") ~ "Otras Neurocard.",
+      str_to_lower(coalesce(caci_2, "")) == "tx"             ~ "Trasplante/Tx",
+      grupo_final == "cardio_other"                          ~ "Otra CV",
+      TRUE                                                   ~ "Otros"
+    ))
+} else {
+  otras_raw <- otras_raw %>%
+    mutate(Categoria = if_else(grupo_final == "cardio_other", "Otra CV", "Otros"))
+}
+
+otras_pal <- c(
+  "COVID-19"         = "#E41A1C",
+  "Otros"            = "#FF7F00",
+  "Otra CV"          = "#984EA3",
+  "Trasplante/Tx"    = "#4DAF4A",
+  "Otras Neurocard." = "#377EB8"
+)
+
+otras_total    <- nrow(otras_raw)
+otras_pct_dime <- round(otras_total / total_mort_dime * 100, 1)
+otras_top_cat  <- otras_raw %>% count(Categoria, sort = TRUE) %>% slice(1) %>% pull(Categoria)
+
+otras_trend <- otras_raw %>%
+  group_by(año, Categoria) %>%
+  summarise(Muertes = n(), .groups = "drop")
+
+otras_mes_act <- otras_raw %>%
+  filter(año == ano_actual) %>%
+  group_by(mes, Categoria) %>%
+  summarise(Muertes = n(), .groups = "drop") %>%
+  mutate(mes_label = factor(mes_nombres[mes], levels = mes_nombres))
+
+otras_tbl <- otras_raw %>%
+  group_by(Año = año, Categoria) %>%
+  summarise(Muertes = n(), .groups = "drop") %>%
+  arrange(Año, desc(Muertes))
+
+otras_dist <- otras_raw %>%
+  count(Categoria, sort = TRUE) %>%
+  mutate(Pct = round(n / sum(n) * 100, 1))
+
+otras_diag_tbl <- otras_raw %>%
+  group_by(Categoria, Diagnostico = diagnostico_egreso_principal) %>%
+  summarise(Muertes = n(), .groups = "drop") %>%
+  arrange(Categoria, desc(Muertes)) %>%
+  group_by(Categoria) %>%
+  slice_head(n = 10) %>%
+  ungroup()
+
+cat(sprintf("otras_raw: %d deaths outside 8 GRDs | top = %s\n", otras_total, otras_top_cat))
+
+# ── 8. Global GEE — trained on pooled CV patients, applied to ALL ─────────────
+# Rationale: CV patients dominate DIME case-mix and have the richest clinical
+# data; the resulting model serves as the reference for hospital-wide HSMR.
+#
+# El HSMR excluye Cirugía y Angiografía: son áreas de procedimiento, no de
+# internación, y no deben contarse en el denominador ni en el entrenamiento
+# del modelo global (a pedido del usuario). El resto del pipeline (modelos
+# por GRD individuales) no se ve afectado por este filtro.
+EXCLUIR_SERVICIOS_HSMR <- c("CIRUGIA", "ANGIOGRAFIA")
+result_hsmr <- result_7 %>% filter(!departamento_actual %in% EXCLUIR_SERVICIOS_HSMR)
+cat("Registros excluidos del HSMR (Cirugía/Angiografía):",
+    nrow(result_7) - nrow(result_hsmr), "de", nrow(result_7), "\n")
+
+cat("Fitting global GEE on pooled CV patients...\n")
+
+df_cv_all   <- result_hsmr %>% filter(grupo_final %in% target_grds) %>% arrange(año)
+df_cv_train <- df_cv_all %>% filter(!año %in% c(2020L, 2021L))
+n_cv_train  <- nrow(df_cv_train)
+
+df_cv_train <- df_cv_train %>%
+  mutate(
+    departamento_de_ingreso = fct_lump_min(as.factor(departamento_de_ingreso), min = 30L, other_level = "OTROS"),
+    departamento_actual     = fct_lump_min(as.factor(departamento_actual),     min = 30L, other_level = "OTROS")
+  ) %>% droplevels()
+
+tab_sg <- table(df_cv_train$sexo,                    df_cv_train$death)
+tab_ig <- table(df_cv_train$departamento_de_ingreso, df_cv_train$death)
+tab_ag <- table(df_cv_train$departamento_actual,      df_cv_train$death)
+
+elix_global_ok <- elix_cols[vapply(elix_cols, function(col) {
+  tbl <- table(df_cv_train[[col]], df_cv_train$death)
+  nrow(tbl) == 2L && ncol(tbl) == 2L && min(tbl) >= 3L
+}, logical(1L))]
+
+preds_global <- c(
+  "ns(edad, df = 3)", "ns(estancia_horas, df = 2)",
+  if (nrow(tab_sg) == 2L && ncol(tab_sg) == 2L && min(tab_sg) >= 2L) "sexo"                    else character(0),
+  if (nrow(tab_ig) >  1L && min(tab_ig) >= 1L)                        "departamento_de_ingreso" else character(0),
+  if (nrow(tab_ag) >  1L && min(tab_ag) >= 1L)                        "departamento_actual"     else character(0),
+  elix_global_ok
+)
+
+# NOTA: se usa glm() en lugar de geeglm(). Con corstr = "independence" las
+# ecuaciones de estimacion GEE coinciden con las de la regresion logistica
+# (coeficientes y probabilidades predichas identicos); la unica diferencia son
+# los errores estandar sandwich, que no se usan aqui (los IC 95% de HSMR se
+# calculan por Byar). geeglm() sobre ~20k registros no converge en tiempo
+# razonable; glm() sobre el mismo conjunto sí.
+modelo_global <- tryCatch(
+  glm(as.formula(paste("death ~", paste(preds_global, collapse = " + "))),
+      data   = df_cv_train,
+      family = binomial("logit")),
+  error = function(e) { cat("Global GLM error:", conditionMessage(e), "\n"); NULL }
+)
+
+if (!is.null(modelo_global)) {
+  tm_ref_global <- sum(df_cv_train$death) / nrow(df_cv_train) * 100
+  cat(sprintf("Global ref. rate: %.2f%% | N train: %d\n", tm_ref_global, n_cv_train))
+
+  # Apply model to ALL patients (all pathologies, excluding Cirugía/Angiografía)
+  data_all <- result_hsmr %>%
+    mutate(
+      departamento_de_ingreso = fct_na_value_to_level(
+        factor(departamento_de_ingreso, levels = levels(df_cv_train$departamento_de_ingreso)), "OTROS"),
+      departamento_actual = fct_na_value_to_level(
+        factor(departamento_actual, levels = levels(df_cv_train$departamento_actual)), "OTROS")
+    )
+  data_all$pred_global <- suppressWarnings(
+    predict(modelo_global, newdata = data_all, type = "response")
+  )
+
+  # Label every patient's group (for distribution charts)
+  if ("caci_2" %in% names(data_all)) {
+    data_all <- data_all %>%
+      mutate(Grupo = case_when(
+        grupo_final %in% target_grds                                           ~ toupper(grupo_final),
+        str_detect(tolower(coalesce(caci_2, "")), "covid")                     ~ "COVID-19",
+        str_detect(tolower(coalesce(caci_2, "")), "neurocard")                 ~ "Otras Neurocard.",
+        str_to_lower(coalesce(caci_2, "")) == "tx"                             ~ "Trasplante/Tx",
+        grupo_final == "cardio_other"                                          ~ "Otra CV",
+        TRUE                                                                   ~ "Otros"
+      ))
+  } else {
+    data_all <- data_all %>%
+      mutate(Grupo = case_when(
+        grupo_final %in% target_grds ~ toupper(grupo_final),
+        grupo_final == "cardio_other" ~ "Otra CV",
+        TRUE ~ "Otros"
+      ))
+  }
+
+  pal_global <- c(
+    pal,
+    "COVID-19"           = "#E41A1C",
+    "Otros"              = "#FF7F00",
+    "Otra CV"            = "#984EA3",
+    "Trasplante/Tx"      = "#4DAF4A",
+    "Otras Neurocard."   = "#377EB8"
+  )
+
+  # HSMR by year
+  hsmr_anual <- data_all %>%
+    filter(!año %in% c(2016L)) %>%
+    group_by(año) %>%
+    summarise(
+      Egresos   = n(),
+      Observado = sum(death, na.rm = TRUE),
+      Esperado  = round(sum(pred_global, na.rm = TRUE), 1),
+      Tasa      = round(Observado / Egresos * 100, 2),
+      HSMR      = round(if_else(Esperado > 0, Observado / Esperado * 100, NA_real_), 1),
+      LI        = round(if_else(Observado > 0,
+                    (Observado / Esperado) *
+                      ((1 - 1/(9*Observado) - 1.96/(3*sqrt(Observado)))^3) * 100, NA_real_), 1),
+      LS        = round(if_else(Observado > 0,
+                    ((Observado + 1) / Esperado) *
+                      ((1 - 1/(9*(Observado+1)) + 1.96/(3*sqrt(Observado+1)))^3) * 100, NA_real_), 1),
+      .groups   = "drop"
+    )
+
+  # Monthly HSMR — current year (con IC 95% de Byar, igual que el anual)
+  hsmr_mes_act_g <- data_all %>%
+    filter(año == ano_actual) %>%
+    group_by(mes) %>%
+    summarise(
+      Egresos   = n(),
+      Observado = sum(death, na.rm = TRUE),
+      Esperado  = round(sum(pred_global, na.rm = TRUE), 2),
+      HSMR      = round(if_else(Esperado > 0, Observado / Esperado * 100, NA_real_), 1),
+      LI        = round(if_else(Observado > 0,
+                    (Observado / Esperado) *
+                      ((1 - 1/(9*Observado) - 1.96/(3*sqrt(Observado)))^3) * 100, NA_real_), 1),
+      LS        = round(if_else(Esperado > 0,
+                    ((Observado + 1) / Esperado) *
+                      ((1 - 1/(9*(Observado+1)) + 1.96/(3*sqrt(Observado+1)))^3) * 100, NA_real_), 1),
+      .groups   = "drop"
+    ) %>%
+    mutate(mes_label = factor(mes_nombres[mes], levels = mes_nombres))
+
+  # Monthly HSMR — TODOS los años (para el selector de año del gráfico mensual)
+  hsmr_mensual_todos <- data_all %>%
+    filter(!año %in% c(2016L)) %>%
+    group_by(año, mes) %>%
+    summarise(
+      Egresos   = n(),
+      Observado = sum(death, na.rm = TRUE),
+      Esperado  = round(sum(pred_global, na.rm = TRUE), 2),
+      HSMR      = round(if_else(Esperado > 0, Observado / Esperado * 100, NA_real_), 1),
+      LI        = round(if_else(Observado > 0,
+                    (Observado / Esperado) *
+                      ((1 - 1/(9*Observado) - 1.96/(3*sqrt(Observado)))^3) * 100, NA_real_), 1),
+      LS        = round(if_else(Esperado > 0,
+                    ((Observado + 1) / Esperado) *
+                      ((1 - 1/(9*(Observado+1)) + 1.96/(3*sqrt(Observado+1)))^3) * 100, NA_real_), 1),
+      .groups   = "drop"
+    ) %>%
+    mutate(mes_label = factor(mes_nombres[mes], levels = mes_nombres)) %>%
+    arrange(año, mes)
+
+  # Death distribution by group × year
+  dist_global <- data_all %>%
+    filter(death == 1L, !año %in% c(2016L)) %>%
+    count(año, Grupo) %>%
+    arrange(año, desc(n))
+
+  dist_global_acum <- data_all %>%
+    filter(death == 1L) %>%
+    count(Grupo, sort = TRUE) %>%
+    mutate(Pct = round(n / sum(n) * 100, 1))
+
+  # Comorbidity prevalence in ALL deaths
+  comorb_global <- if (length(elix_available) > 0) {
+    data_all %>%
+      filter(death == 1L) %>%
+      select(all_of(elix_available)) %>%
+      summarise(across(everything(), ~ round(mean(., na.rm = TRUE) * 100, 1))) %>%
+      pivot_longer(everything(), names_to = "Comorbilidad", values_to = "Prevalencia") %>%
+      mutate(Comorbilidad = elix_labels[match(Comorbilidad, elix_available)]) %>%
+      arrange(desc(Prevalencia))
+  } else {
+    tibble(Comorbilidad = character(), Prevalencia = numeric())
+  }
+
+  # Odds ratios from global model (risk factors)
+  coef_global <- tryCatch({
+    tidy(modelo_global) %>%
+      filter(!str_detect(term, "^ns\\(|^\\(Intercept\\)|departamento")) %>%
+      transmute(
+        Variable = str_replace_all(term, c(
+          "sexo.*"                                  = "Sexo (M)",
+          "Elix_Hipertension_Total"                 = "Hipertensión",
+          "Elix_Diabetes_Total"                     = "Diabetes",
+          "Elix_Insuficiencia_Cardiaca_Congestiva"  = "Insuf. Cardíaca",
+          "Elix_Arritmias_Cardiacas"                = "Arritmias",
+          "Elix_Enfermedad_Valvular"                = "Enf. Valvular",
+          "Elix_Trastornos_Vasculares_Perifericos"  = "Enf. Vasc. Periférica",
+          "Elix_Trastornos_Circulacion_Pulmonar"    = "Trastornos Circ. Pulmonar",
+          "Elix_Enfermedad_Pulmonar_Cronica"        = "Enf. Pulmonar Crónica",
+          "Elix_Otros_Trastornos_Neurologicos"      = "Otros Trast. Neurológicos",
+          "Elix_Insuficiencia_Renal"                = "Insuf. Renal",
+          "Elix_Cancer_Total"                       = "Cáncer",
+          "Elix_Obesidad"                           = "Obesidad",
+          "Elix_Hipotiroidismo"                     = "Hipotiroidismo",
+          "Elix_VIH_SIDA"                           = "VIH/SIDA"
+        )),
+        OR   = round(exp(estimate), 2),
+        LI95 = round(exp(estimate - 1.96 * std.error), 2),
+        LS95 = round(exp(estimate + 1.96 * std.error), 2),
+        `p valor` = round(p.value, 3)
+      ) %>%
+      arrange(desc(OR))
+  }, error = function(e) { tibble() })
+
+  # Scalars
+  hsmr_actual_val      <- hsmr_anual %>% filter(año == ano_actual) %>% pull(HSMR)
+  hsmr_actual_val      <- if (length(hsmr_actual_val) == 0 || all(is.na(hsmr_actual_val))) NA_real_ else hsmr_actual_val[1]
+  hsmr_esp_actual      <- hsmr_anual %>% filter(año == ano_actual) %>% pull(Esperado)
+  hsmr_esp_actual      <- if (length(hsmr_esp_actual) == 0) NA_real_ else hsmr_esp_actual[1]
+  total_egresos_global <- nrow(data_all %>% filter(!año %in% c(2016L)))
+  total_muertes_global <- sum(data_all$death[!data_all$año %in% c(2016L)], na.rm = TRUE)
+  tasa_global          <- round(total_muertes_global / total_egresos_global * 100, 2)
+  hsmr_color_g         <- if (!is.na(hsmr_actual_val) && hsmr_actual_val > 100) "danger" else "success"
+
+  cat(sprintf("HSMR %d: %.1f | Egresos global: %d | Muertes: %d | Tasa: %.2f%%\n",
+              ano_actual, coalesce(hsmr_actual_val, NA_real_),
+              total_egresos_global, total_muertes_global, tasa_global))
+} else {
+  tm_ref_global        <- NA_real_
+  pal_global           <- pal
+  hsmr_anual           <- tibble(año = integer(), Egresos = integer(), Observado = integer(),
+                                  Esperado = numeric(), Tasa = numeric(), HSMR = numeric(),
+                                  LI = numeric(), LS = numeric())
+  hsmr_mes_act_g       <- tibble()
+  hsmr_mensual_todos   <- tibble()
+  dist_global          <- tibble()
+  dist_global_acum     <- tibble()
+  comorb_global        <- tibble()
+  coef_global          <- tibble()
+  hsmr_actual_val      <- NA_real_
+  hsmr_esp_actual      <- NA_real_
+  total_egresos_global <- 0L
+  total_muertes_global <- 0L
+  tasa_global          <- NA_real_
+  hsmr_color_g         <- "warning"
+}
+
+# ── 9. Save ───────────────────────────────────────────────────────────────────
 precomp <- list(
   tbl_anual             = tbl_anual,
   df_bim                = df_bim,
@@ -395,7 +713,33 @@ precomp <- list(
   act_exp               = act_exp,
   act_tmar              = act_tmar,
   tmar_reciente         = tmar_reciente,
-  tmar_color            = tmar_color
+  tmar_color            = tmar_color,
+  otras_total           = otras_total,
+  otras_pct_dime        = otras_pct_dime,
+  otras_top_cat         = otras_top_cat,
+  otras_trend           = otras_trend,
+  otras_mes_act         = otras_mes_act,
+  otras_tbl             = otras_tbl,
+  otras_dist            = otras_dist,
+  otras_pal             = otras_pal,
+  otras_diag_tbl        = otras_diag_tbl,
+  # Global HSMR
+  hsmr_anual            = hsmr_anual,
+  hsmr_mes_act_g        = hsmr_mes_act_g,
+  hsmr_mensual_todos    = hsmr_mensual_todos,
+  dist_global           = dist_global,
+  dist_global_acum      = dist_global_acum,
+  comorb_global         = comorb_global,
+  coef_global           = coef_global,
+  pal_global            = pal_global,
+  tm_ref_global         = tm_ref_global,
+  n_cv_train            = n_cv_train,
+  hsmr_actual_val       = hsmr_actual_val,
+  hsmr_esp_actual       = hsmr_esp_actual,
+  total_egresos_global  = total_egresos_global,
+  total_muertes_global  = total_muertes_global,
+  tasa_global           = tasa_global,
+  hsmr_color_g          = hsmr_color_g
 )
 
 out <- "shiny_mortalidad/data/mort_precomputed.rds"

@@ -1,0 +1,17 @@
+[07:30:26] ========================================
+[07:30:27] GRD MONTHLY REPORT — DIME
+[07:30:27] Reporting period: July 2026
+[07:30:29] Working directory: /Users/juansebastianhurtadozapata/Desktop/DIME/Documentos EDI/Personal JSH/analisis_caci_2023
+[07:30:30] ========================================
+[07:44:09] Checking required packages...
+[10:23:07] All packages available.
+[10:23:07] Sourcing CACI classifier...
+[10:23:07] Classifier loaded.
+[10:23:07] Running analysis pipeline...
+[10:29:10] Pipeline complete. Rows in cost dataset: 1023493
+[10:29:10] Rows in GRD dataset: 10346
+[10:29:10] CACI distribution: acv=1223 | cardio_other=657 | icc=1596 | sca=2390 | tep=126 | txc=30
+[10:29:10] Rendering Quarto report...
+[10:29:10] QMD NOT FOUND: /Users/juansebastianhurtadozapata/Desktop/DIME/Documentos EDI/Personal JSH/analisis_caci_2023/index.qmd
+[10:29:10] Total elapsed: 6.1 minutes
+[10:29:10] ========================================

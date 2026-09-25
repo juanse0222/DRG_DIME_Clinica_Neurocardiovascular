@@ -43,6 +43,8 @@ ui <- dashboardPage(
       menuItem("Por unidad",    tabName = "por_unidad",    icon = icon("hospital")),
       menuItem("Epidemiología", tabName = "epidemiologia", icon = icon("stethoscope")),
       menuItem("Perfil de pacientes", tabName = "perfil_pac", icon = icon("user-injured")),
+      menuItem("Egresos y Reingresos", tabName = "egresos_dist", icon = icon("door-open")),
+      menuItem("Autoservicio por Servicio", tabName = "autoservicio", icon = icon("user-md")),
       menuItem("Mapa",                tabName = "mapa_pac",   icon = icon("map-marked-alt")),
       menuItem("Datos",         tabName = "datos",         icon = icon("table"))
     ),
@@ -320,6 +322,186 @@ ui <- dashboardPage(
       ),
 
       # ════════════════════════════════════════════════════════════════════════
+      # Tab · Egresos y Reingresos — distribución por servicio, histórico 2017-2026
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "egresos_dist",
+        fluidRow(
+          box(width = 12, solidHeader = FALSE, status = "primary",
+              tags$div(style = "display:flex; gap:24px; align-items:flex-end; flex-wrap:wrap;",
+                tags$div(style = "min-width:280px;",
+                  sliderInput("dist_años", "Rango de años",
+                              min = min(dist_year_choices, 2017L),
+                              max = max(dist_year_choices, 2026L),
+                              value = c(min(dist_year_choices, 2017L), max(dist_year_choices, 2026L)),
+                              step = 1, sep = "")
+                ),
+                tags$div(style = "min-width:220px;",
+                  radioButtons("dist_atencion", "Tipo de atención",
+                               choices = c("Todos" = "Todos",
+                                           "Ambulatorio" = "AMBULATORIO",
+                                           "Hospitalario" = "HOSPITALARIO"),
+                               selected = "Todos", inline = TRUE)
+                ),
+                tags$div(style = "flex:1; min-width:260px;",
+                  tags$small(tags$em(
+                    "Reingreso = ingreso a Urgencias/UCI/UCIN dentro de los 20 días ",
+                    "siguientes al egreso previo del mismo paciente de uno de esos ",
+                    "servicios (misma metodología de los reportes mensuales)."
+                  ))
+                )
+              )
+          )
+        ),
+        uiOutput("dist_kpi_boxes"),
+        br(),
+        fluidRow(
+          box(title = tagList(icon("chart-area"), " Egresos totales por año"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_dist_tendencia", height = "380px")),
+          box(title = tagList(icon("percent"), " Tasa de reingreso a 20 días (Urg/UCI/UCIN)"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_reingreso_tendencia", height = "380px"))
+        ),
+        fluidRow(
+          box(title = tagList(icon("hospital"), " Servicios con mayor volumen de egresos"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("plot_dist_servicio", height = "420px")),
+          box(title = tagList(icon("table"), " Egresos por año y servicio"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              reactableOutput("tabla_dist_servicio"))
+        ),
+
+        tags$hr(),
+        fluidRow(
+          box(width = 12, solidHeader = FALSE, status = "primary",
+              tags$div(style = "display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;",
+                tags$span(class = "filters-section-label", style = "margin-bottom:0;",
+                          "Detalle mensual por servicio"),
+                downloadButton("dm_download", "Descargar datos (Excel)", class = "btn-sm")
+              ),
+              tags$div(style = "display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap;",
+                tags$div(style = "min-width:110px;",
+                  selectInput("dm_año", "Año",
+                              choices  = dist_year_choices,
+                              selected = max(dist_year_choices, 2026L))
+                ),
+                tags$div(style = "min-width:260px;",
+                  selectizeInput("dm_meses", "Meses",
+                                choices = setNames(1:12, meses_abr), selected = 1:12,
+                                multiple = TRUE, width = "100%",
+                                options = list(plugins = list("remove_button"),
+                                               placeholder = "Selecciona uno o más meses"))
+                ),
+                tags$div(style = "min-width:220px;",
+                  radioButtons("dm_atencion", "Tipo de atención",
+                               choices = c("Todos" = "Todos",
+                                           "Ambulatorio" = "AMBULATORIO",
+                                           "Hospitalario" = "HOSPITALARIO"),
+                               selected = "Todos", inline = TRUE)
+                ),
+                tags$div(style = "min-width:300px; max-width:420px; flex:1;",
+                  selectizeInput("dm_servicio", "Servicios (gráficos)",
+                                choices = dm_servicio_choices, selected = dm_servicio_default,
+                                multiple = TRUE, width = "100%",
+                                options = list(plugins = list("remove_button"),
+                                               placeholder = "Selecciona uno o más servicios"))
+                )
+              ),
+              tags$small(tags$em(
+                "El filtro de servicios afecta solo los gráficos; la tabla y la ",
+                "descarga incluyen todos los servicios para el año/mes/tipo de ",
+                "atención seleccionados."
+              ))
+          )
+        ),
+        fluidRow(
+          box(title = tagList(icon("chart-bar"), " Egresos mensuales por servicio (conteo)"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("dm_plot_bar", height = "380px")),
+          box(title = tagList(icon("percent"), " Participación mensual por servicio (%)"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("dm_plot_line", height = "380px"))
+        ),
+        fluidRow(
+          box(title = tagList(icon("table"), " Egresos por mes, servicio y tipo de atención"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              reactableOutput("dm_table"))
+        )
+      ),
+
+      # ════════════════════════════════════════════════════════════════════════
+      # Tab · Autoservicio por Servicio — cada jefe de servicio filtra el suyo:
+      # sociodemografía, diagnósticos/condición clínica y financiero básico,
+      # histórico 2017-2026, con descarga en Excel.
+      # ════════════════════════════════════════════════════════════════════════
+      tabItem(tabName = "autoservicio",
+        fluidRow(
+          box(width = 12, solidHeader = FALSE, status = "primary",
+              tags$div(style = "display:flex; gap:24px; align-items:flex-end; flex-wrap:wrap;",
+                tags$div(style = "min-width:280px; flex:1;",
+                  selectInput("as_servicio", "Servicio",
+                              choices = as_servicio_choices,
+                              selected = if (length(as_servicio_choices) > 0) as_servicio_choices[1] else NULL)
+                ),
+                tags$div(style = "min-width:260px;",
+                  sliderInput("as_años", "Rango de años",
+                              min = min(as_year_choices, 2017L),
+                              max = max(as_year_choices, 2026L),
+                              value = c(min(as_year_choices, 2017L), max(as_year_choices, 2026L)),
+                              step = 1, sep = "")
+                ),
+                tags$div(style = "min-width:220px;",
+                  radioButtons("as_atencion", "Tipo de atención",
+                               choices = c("Todos" = "Todos",
+                                           "Ambulatorio" = "AMBULATORIO",
+                                           "Hospitalario" = "HOSPITALARIO"),
+                               selected = "Todos", inline = TRUE)
+                )
+              ),
+              tags$div(style = "display:flex; justify-content:space-between; align-items:center; margin-top:10px;",
+                tags$small(tags$em(
+                  "Autoservicio: selecciona tu servicio para ver su distribución de ",
+                  "egresos, sociodemografía y diagnósticos. La condición clínica ",
+                  "relevante (ICC/ACV/SCA/TEP/TxC) solo está disponible desde 2024."
+                )),
+                downloadButton("as_download", "Descargar datos (Excel)", class = "btn-sm")
+              )
+          )
+        ),
+        uiOutput("as_kpi_boxes"),
+        br(),
+        fluidRow(
+          box(title = tagList(icon("venus-mars"), " Pirámide poblacional"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("as_plot_piramide", height = "380px")),
+          box(title = tagList(icon("hand-holding-medical"), " Tipo de pagador (EAPB / SLE)"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("as_plot_pagador", height = "380px"))
+        ),
+        fluidRow(
+          box(title = tagList(icon("chart-area"), " Egresos mensuales"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("as_plot_tendencia", height = "360px")),
+          box(title = tagList(icon("layer-group"), " Ambulatorio vs. Hospitalario"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("as_plot_atencion", height = "360px"))
+        ),
+        fluidRow(
+          box(title = tagList(icon("stethoscope"), " Principales grupos de diagnóstico (CIE-10)"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("as_plot_dx", height = "380px")),
+          box(title = tagList(icon("heartbeat"), " Condición clínica CACI (disponible desde 2024)"),
+              solidHeader = TRUE, status = "primary", width = 6,
+              plotlyOutput("as_plot_caci", height = "380px"))
+        ),
+        fluidRow(
+          box(title = tagList(icon("table"), " Detalle de diagnósticos"),
+              solidHeader = TRUE, status = "primary", width = 12,
+              reactableOutput("as_table_dx"))
+        )
+      ),
+
+      # ════════════════════════════════════════════════════════════════════════
       # Tab · Mapa — pacientes geocodificados (EAPB / SLE / CACI)
       # ════════════════════════════════════════════════════════════════════════
       tabItem(tabName = "mapa_pac",
@@ -396,6 +578,18 @@ ui <- dashboardPage(
           box(width = 12, solidHeader = TRUE, status = "primary",
               title = tagList(icon("chart-bar"), " Visitas por mes — EAPB / SLE"),
               plotlyOutput("map_plot_mensual", height = "320px"))
+        ),
+        fluidRow(
+          box(width = 12, solidHeader = FALSE, status = "warning", collapsible = TRUE,
+              collapsed = TRUE,
+              title = tagList(icon("lock"), " Exportar contactos (equipo de comunicaciones)"),
+              tags$p(tags$em(
+                "Incluye nombre, cédula y teléfono para el segmento de pacientes",
+                "actualmente filtrado arriba. Acceso restringido — solicitar la",
+                "contraseña al equipo de datos."
+              )),
+              uiOutput("comms_export_ui")
+          )
         )
       ),
 
@@ -1544,6 +1738,507 @@ server <- function(input, output, session) {
   })
 
   # ══════════════════════════════════════════════════════════════════════════
+  # Tab · Egresos y Reingresos
+  # ══════════════════════════════════════════════════════════════════════════
+  dist_filt <- reactive({
+    req(discharges_by_service)
+    df <- discharges_by_service %>%
+      filter(año >= input$dist_años[1], año <= input$dist_años[2])
+    if (input$dist_atencion != "Todos")
+      df <- df %>% filter(tipo_de_atencion == input$dist_atencion)
+    df
+  })
+
+  readm_filt <- reactive({
+    req(readmissions_trend)
+    readmissions_trend %>%
+      filter(año >= input$dist_años[1], año <= input$dist_años[2])
+  })
+
+  output$dist_kpi_boxes <- renderUI({
+    if (is.null(discharges_by_service)) {
+      return(fluidRow(box(width = 12, status = "warning",
+        "Egresos y reingresos no disponible: ejecuta scripts/prep_discharges_trend.R.")))
+    }
+    df <- dist_filt()
+    rd <- readm_filt()
+    top_servicio <- df %>%
+      count(servicio, wt = n_egresos, sort = TRUE) %>%
+      slice_head(n = 1)
+    tasa_reingreso <- if (nrow(rd) > 0 && sum(rd$n_admisiones) > 0)
+      100 * sum(rd$n_reingresos_20d) / sum(rd$n_admisiones) else NA_real_
+    pct_hosp <- if (sum(df$n_egresos) > 0)
+      100 * sum(df$n_egresos[df$tipo_de_atencion == "HOSPITALARIO"]) / sum(df$n_egresos) else NA_real_
+
+    fluidRow(
+      valueBox(format(sum(df$n_egresos), big.mark = "."),
+               "Egresos totales", icon = icon("door-open"), color = "blue", width = 3),
+      valueBox(pct_fmt(pct_hosp),
+               "% Hospitalario", icon = icon("hospital"), color = "purple", width = 3),
+      valueBox(pct_fmt(tasa_reingreso),
+               "Tasa de reingreso (20 días)", icon = icon("rotate-left"), color = "red", width = 3),
+      valueBox(str_to_title(coalesce(top_servicio$servicio, "—")),
+               "Servicio con mayor volumen", icon = icon("star"), color = "green", width = 3)
+    )
+  })
+
+  output$plot_dist_tendencia <- renderPlotly({
+    df <- dist_filt()
+    req(nrow(df) > 0)
+    d <- df %>%
+      mutate(tipo = str_to_title(tipo_de_atencion)) %>%
+      group_by(año, tipo) %>%
+      summarise(n = sum(n_egresos), .groups = "drop")
+    # Nota: sin aes(text=...) a propósito — con eje x continuo (año), un
+    # aes `text` que varía por fila rompe geom_line() en ggplotly (inserta
+    # NA entre cada punto y la línea desaparece). El tooltip por defecto de
+    # ggplotly (x/y/color) evita ese bug y no requiere puntos visibles.
+    p <- ggplot(d, aes(x = año, y = n, color = tipo, group = tipo)) +
+      geom_line(linewidth = 1) +
+      scale_color_manual(values = tipo_atencion_colors) +
+      labs(x = NULL, y = "Egresos", color = NULL) +
+      theme_classic() +
+      theme(legend.position = "bottom")
+    ggplotly(p, tooltip = c("x", "y", "colour"))
+  })
+
+  output$plot_dist_servicio <- renderPlotly({
+    df <- dist_filt()
+    req(nrow(df) > 0)
+    d <- df %>%
+      count(servicio, wt = n_egresos, name = "n", sort = TRUE) %>%
+      slice_head(n = 10) %>%
+      mutate(servicio = str_to_title(servicio))
+    p <- ggplot(d, aes(x = reorder(servicio, n), y = n,
+                       text = paste0(servicio, "<br>Egresos: ", n))) +
+      geom_col(fill = "#4E79A7") +
+      coord_flip() +
+      labs(x = NULL, y = "Egresos") +
+      theme_classic()
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$plot_reingreso_tendencia <- renderPlotly({
+    rd <- readm_filt()
+    req(nrow(rd) > 0)
+    d <- rd %>%
+      group_by(año) %>%
+      summarise(n_admisiones = sum(n_admisiones),
+                n_reingresos_20d = sum(n_reingresos_20d), .groups = "drop") %>%
+      mutate(pct = round(100 * n_reingresos_20d / n_admisiones, 2))
+    # Mismo motivo que en plot_dist_tendencia: sin aes(text=...) para no
+    # romper geom_line() en un eje x continuo.
+    p <- ggplot(d, aes(x = año, y = pct)) +
+      geom_line(color = "#E15759", linewidth = 1) +
+      labs(x = NULL, y = "% Reingreso") +
+      theme_classic()
+    ggplotly(p, tooltip = c("x", "y"))
+  })
+
+  output$tabla_dist_servicio <- renderReactable({
+    df <- dist_filt()
+    req(nrow(df) > 0)
+    top_servicios <- df %>%
+      count(servicio, wt = n_egresos, sort = TRUE) %>%
+      slice_head(n = 15) %>%
+      pull(servicio)
+    d <- df %>%
+      filter(servicio %in% top_servicios) %>%
+      mutate(servicio = str_to_title(servicio)) %>%
+      group_by(año, servicio) %>%
+      summarise(n = sum(n_egresos), .groups = "drop") %>%
+      pivot_wider(id_cols = año, names_from = servicio, values_from = n) %>%
+      mutate(across(-año, ~replace_na(.x, 0))) %>%
+      arrange(desc(año))
+    reactable(
+      d,
+      pagination    = FALSE,
+      striped       = TRUE,
+      highlight     = TRUE,
+      bordered      = TRUE,
+      defaultColDef = colDef(align = "center", format = colFormat(separators = TRUE)),
+      columns = list(año = colDef(name = "Año", sticky = "left",
+                                  format = colFormat(separators = FALSE)))
+    )
+  })
+
+  # ── Detalle mensual por servicio (dentro de "Egresos y Reingresos") ────────
+  # Base: año + meses + tipo de atención. Sin filtro de servicio — es la que
+  # alimenta la tabla y la descarga, para que ambas queden completas.
+  dm_filt <- reactive({
+    req(discharges_by_service, input$dm_año, input$dm_meses)
+    df <- discharges_by_service %>%
+      filter(año == as.integer(input$dm_año),
+             mes %in% as.integer(input$dm_meses))
+    if (input$dm_atencion != "Todos")
+      df <- df %>% filter(tipo_de_atencion == input$dm_atencion)
+    df
+  })
+
+  # Igual que dm_filt(), pero restringida a los servicios elegidos para que
+  # los gráficos no queden saturados de líneas/barras.
+  dm_chart_filt <- reactive({
+    req(input$dm_servicio)
+    dm_filt() %>% filter(servicio %in% input$dm_servicio)
+  })
+
+  output$dm_plot_bar <- renderPlotly({
+    d <- dm_chart_filt()
+    req(nrow(d) > 0)
+    d <- d %>%
+      group_by(mes, servicio) %>%
+      summarise(n = sum(n_egresos), .groups = "drop") %>%
+      mutate(mes_lbl = mes_factor(mes), servicio = str_to_title(servicio))
+    p <- ggplot(d, aes(x = mes_lbl, y = n, fill = servicio,
+                       text = paste0(mes_lbl, "<br>", servicio, "<br>Egresos: ", n))) +
+      geom_col(position = "stack") +
+      scale_fill_manual(values = service_palette(d$servicio)) +
+      labs(x = NULL, y = "Egresos", fill = NULL) +
+      theme_classic() +
+      theme(legend.position = "bottom")
+    ggplotly(p, tooltip = "text") %>% layout(legend = list(orientation = "h"))
+  })
+
+  output$dm_plot_line <- renderPlotly({
+    base <- dm_filt()
+    req(nrow(base) > 0, input$dm_servicio)
+    month_totals <- base %>%
+      group_by(mes) %>%
+      summarise(total = sum(n_egresos), .groups = "drop")
+    d <- base %>%
+      filter(servicio %in% input$dm_servicio) %>%
+      group_by(mes, servicio) %>%
+      summarise(n = sum(n_egresos), .groups = "drop") %>%
+      left_join(month_totals, by = "mes") %>%
+      mutate(pct = round(100 * n / total, 1),
+             mes_lbl = mes_factor(mes),
+             servicio = str_to_title(servicio))
+    req(nrow(d) > 0)
+    p <- ggplot(d, aes(x = mes_lbl, y = pct, color = servicio, group = servicio,
+                       text = paste0(mes_lbl, "<br>", servicio, "<br>",
+                                     "Participación: ", pct, "%"))) +
+      geom_line(linewidth = 1) +
+      scale_color_manual(values = service_palette(d$servicio)) +
+      labs(x = NULL, y = "% del total mensual", color = NULL) +
+      theme_classic() +
+      theme(legend.position = "bottom")
+    ggplotly(p, tooltip = "text") %>% layout(legend = list(orientation = "h"))
+  })
+
+  output$dm_table <- renderReactable({
+    d <- dm_filt()
+    req(nrow(d) > 0)
+    d <- d %>%
+      transmute(
+        Año   = año,
+        Mes   = mes_factor(mes),
+        Servicio = str_to_title(servicio),
+        `Tipo de atención` = str_to_title(tipo_de_atencion),
+        Egresos = n_egresos
+      ) %>%
+      arrange(Mes, desc(Egresos))
+    reactable(
+      d,
+      pagination    = TRUE,
+      defaultPageSize = 15,
+      striped       = TRUE,
+      highlight     = TRUE,
+      bordered      = TRUE,
+      filterable    = TRUE,
+      defaultColDef = colDef(align = "center"),
+      columns = list(
+        Egresos = colDef(format = colFormat(separators = TRUE))
+      )
+    )
+  })
+
+  output$dm_download <- downloadHandler(
+    filename = function() {
+      paste0("dime_egresos_mensuales_", input$dm_año, "_", format(Sys.Date(), "%Y%m%d"), ".xlsx")
+    },
+    content = function(file) {
+      d <- dm_filt() %>%
+        arrange(mes, servicio) %>%
+        transmute(
+          Año = año, Mes = as.character(mes_factor(mes)),
+          Servicio = str_to_title(servicio),
+          `Tipo de atención` = str_to_title(tipo_de_atencion),
+          Egresos = n_egresos
+        )
+      writexl::write_xlsx(d, file)
+    }
+  )
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Tab · Autoservicio por Servicio
+  # ══════════════════════════════════════════════════════════════════════════
+  as_empty_plot <- function(msg) {
+    p <- ggplot() +
+      annotate("text", x = 0, y = 0, label = msg, size = 4.2, color = "#888888") +
+      theme_void()
+    ggplotly(p) %>% plotly::layout(xaxis = list(visible = FALSE), yaxis = list(visible = FALSE))
+  }
+
+  as_sociodemo_filt <- reactive({
+    req(servicio_sociodemo, input$as_servicio, input$as_años)
+    yr <- input$as_años
+    df <- servicio_sociodemo %>%
+      filter(servicio == input$as_servicio, año >= yr[1], año <= yr[2])
+    if (input$as_atencion != "Todos") df <- df %>% filter(tipo_de_atencion == input$as_atencion)
+    df
+  })
+
+  as_dx_filt <- reactive({
+    req(servicio_diagnosticos, input$as_servicio, input$as_años)
+    yr <- input$as_años
+    df <- servicio_diagnosticos %>%
+      filter(servicio == input$as_servicio, año >= yr[1], año <= yr[2])
+    if (input$as_atencion != "Todos") df <- df %>% filter(tipo_de_atencion == input$as_atencion)
+    df
+  })
+
+  as_caci_filt <- reactive({
+    req(input$as_servicio, input$as_años)
+    if (is.null(servicio_caci)) return(servicio_caci[0, ])
+    yr <- input$as_años
+    df <- servicio_caci %>%
+      filter(servicio == input$as_servicio, año >= yr[1], año <= yr[2])
+    if (input$as_atencion != "Todos") df <- df %>% filter(tipo_de_atencion == input$as_atencion)
+    df
+  })
+
+  output$as_kpi_boxes <- renderUI({
+    if (is.null(servicio_sociodemo)) {
+      return(fluidRow(box(width = 12, status = "warning",
+        "Autoservicio no disponible: ejecuta scripts/prep_autoservicio_servicio.R.")))
+    }
+    df <- as_sociodemo_filt()
+    if (nrow(df) == 0) {
+      return(fluidRow(box(width = 12, status = "warning",
+        "Sin egresos para este servicio en el rango seleccionado.")))
+    }
+    n_total       <- sum(df$n_egresos)
+    estancia_prom <- weighted.mean(df$estancia_dias_prom, df$n_egresos, na.rm = TRUE)
+    valor_prom    <- weighted.mean(df$valor_factura_prom, df$n_egresos, na.rm = TRUE)
+    valor_total   <- sum(df$valor_factura_total, na.rm = TRUE)
+    fluidRow(
+      valueBox(format(n_total, big.mark = "."),
+               "Egresos", icon = icon("door-open"), color = "blue", width = 3),
+      valueBox(sprintf("%.1f", estancia_prom),
+               "Estancia media (días)", icon = icon("bed"), color = "purple", width = 3),
+      valueBox(paste0("$", format(round(valor_prom), big.mark = ".")),
+               "Valor factura promedio", icon = icon("file-invoice-dollar"), color = "green", width = 3),
+      valueBox(paste0("$", format(round(valor_total / 1e6), big.mark = "."), "M"),
+               "Valor factura total", icon = icon("coins"), color = "yellow", width = 3)
+    )
+  })
+
+  output$as_plot_piramide <- renderPlotly({
+    df <- as_sociodemo_filt() %>%
+      filter(!is.na(edad_grupo), !is.na(sexo)) %>%
+      group_by(edad_grupo, sexo) %>%
+      summarise(n = sum(n_egresos), .groups = "drop")
+    if (nrow(df) == 0) return(as_empty_plot("Sin datos sociodemográficos para este filtro"))
+    d <- df %>% mutate(n_dir = if_else(sexo == "Femenino", -n, n))
+    p <- ggplot(d, aes(x = edad_grupo, y = n_dir, fill = sexo,
+                       text = paste0("Edad: ", edad_grupo, "<br>Sexo: ", sexo, "<br>Egresos: ", n))) +
+      geom_col(color = "black", linewidth = 0.2) +
+      coord_flip() +
+      scale_y_continuous(labels = abs) +
+      scale_fill_manual(values = sexo_colors) +
+      labs(x = "Grupo de edad", y = "Egresos", fill = "Sexo") +
+      theme_classic() +
+      theme(legend.position = "bottom")
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$as_plot_pagador <- renderPlotly({
+    df <- as_sociodemo_filt() %>%
+      group_by(tipo_pagador) %>%
+      summarise(n = sum(n_egresos), .groups = "drop")
+    if (nrow(df) == 0) return(as_empty_plot("Sin datos de pagador para este filtro"))
+    d <- df %>% mutate(pct = n / sum(n) * 100)
+    p <- ggplot(d, aes(x = reorder(tipo_pagador, n), y = n, fill = tipo_pagador,
+                       text = paste0(tipo_pagador, "<br>Egresos: ", n,
+                                     "<br>", round(pct, 1), "%"))) +
+      geom_col() +
+      coord_flip() +
+      scale_fill_manual(values = payer_colors) +
+      labs(x = NULL, y = "Egresos") +
+      theme_classic() +
+      theme(legend.position = "none")
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$as_plot_tendencia <- renderPlotly({
+    df <- as_sociodemo_filt() %>%
+      group_by(año, mes) %>%
+      summarise(n = sum(n_egresos), .groups = "drop") %>%
+      mutate(fecha = as.Date(sprintf("%d-%02d-01", año, mes))) %>%
+      arrange(fecha)
+    if (nrow(df) == 0) return(as_empty_plot("Sin egresos para este filtro"))
+    p <- ggplot(df, aes(x = fecha, y = n,
+                       text = paste0(format(fecha, "%b %Y"), "<br>Egresos: ", n))) +
+      geom_line(color = "#4E79A7", linewidth = 0.8) +
+      geom_point(color = "#4E79A7", size = 1.2) +
+      labs(x = NULL, y = "Egresos") +
+      theme_classic()
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$as_plot_atencion <- renderPlotly({
+    df <- as_sociodemo_filt() %>%
+      group_by(año, tipo_de_atencion) %>%
+      summarise(n = sum(n_egresos), .groups = "drop") %>%
+      mutate(tipo = str_to_title(tipo_de_atencion))
+    if (nrow(df) == 0) return(as_empty_plot("Sin egresos para este filtro"))
+    p <- ggplot(df, aes(x = factor(año), y = n, fill = tipo,
+                       text = paste0("Año: ", año, "<br>", tipo, ": ", n))) +
+      geom_col() +
+      scale_fill_manual(values = tipo_atencion_colors) +
+      labs(x = NULL, y = "Egresos", fill = NULL) +
+      theme_classic() +
+      theme(legend.position = "bottom")
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$as_plot_dx <- renderPlotly({
+    df <- as_dx_filt() %>%
+      group_by(dx_capitulo) %>%
+      summarise(n = sum(n_egresos), .groups = "drop") %>%
+      slice_max(n, n = 10, with_ties = FALSE)
+    if (nrow(df) == 0) return(as_empty_plot("Sin diagnósticos registrados para este filtro"))
+    p <- ggplot(df, aes(x = reorder(dx_capitulo, n), y = n,
+                       text = paste0(dx_capitulo, "<br>Egresos: ", n))) +
+      geom_col(fill = "#4E79A7") +
+      coord_flip() +
+      labs(x = NULL, y = "Egresos") +
+      theme_classic()
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$as_plot_caci <- renderPlotly({
+    yr <- input$as_años
+    if (is.null(servicio_caci) || is.na(as_caci_year_min) || is.null(yr) || yr[2] < as_caci_year_min) {
+      return(as_empty_plot(paste0("Clasificación CACI disponible desde ", as_caci_year_min)))
+    }
+    df <- as_caci_filt() %>%
+      group_by(caci) %>%
+      summarise(n = sum(n_casos), .groups = "drop")
+    if (nrow(df) == 0) return(as_empty_plot("Sin casos CACI para este servicio en el rango seleccionado"))
+    p <- ggplot(df, aes(x = reorder(caci, n), y = n, fill = caci,
+                       text = paste0(caci, "<br>Casos: ", n))) +
+      geom_col() +
+      coord_flip() +
+      scale_fill_manual(values = caci_colors) +
+      labs(x = NULL, y = "Casos") +
+      theme_classic() +
+      theme(legend.position = "none")
+    ggplotly(p, tooltip = "text")
+  })
+
+  output$as_table_dx <- renderReactable({
+    d <- as_dx_filt() %>%
+      group_by(dx_capitulo, dx_cod, dx_desc) %>%
+      summarise(Egresos = sum(n_egresos), .groups = "drop") %>%
+      transmute(
+        `Capítulo CIE-10` = dx_capitulo,
+        `Código` = dx_cod,
+        `Diagnóstico` = str_to_title(coalesce(dx_desc, "")),
+        Egresos
+      ) %>%
+      arrange(desc(Egresos))
+    reactable(
+      d,
+      pagination      = TRUE,
+      defaultPageSize = 15,
+      striped         = TRUE,
+      highlight       = TRUE,
+      bordered        = TRUE,
+      filterable      = TRUE,
+      defaultColDef   = colDef(align = "center"),
+      columns = list(
+        Egresos = colDef(format = colFormat(separators = TRUE))
+      )
+    )
+  })
+
+  output$as_download <- downloadHandler(
+    filename = function() {
+      paste0("dime_autoservicio_", janitor::make_clean_names(input$as_servicio),
+             "_", format(Sys.Date(), "%Y%m%d"), ".xlsx")
+    },
+    content = function(file) {
+      yr <- input$as_años
+      sociodemo_d <- as_sociodemo_filt()
+      dx_d        <- as_dx_filt()
+
+      resumen <- tibble::tibble(
+        Servicio = input$as_servicio,
+        `Años`   = paste(yr[1], "-", yr[2]),
+        `Tipo de atención` = input$as_atencion,
+        Egresos  = sum(sociodemo_d$n_egresos),
+        `Estancia media (días)` = round(weighted.mean(sociodemo_d$estancia_dias_prom,
+                                                        sociodemo_d$n_egresos, na.rm = TRUE), 1),
+        `Valor factura promedio` = round(weighted.mean(sociodemo_d$valor_factura_prom,
+                                                         sociodemo_d$n_egresos, na.rm = TRUE)),
+        `Valor factura total` = round(sum(sociodemo_d$valor_factura_total, na.rm = TRUE))
+      )
+
+      sociodemo_out <- sociodemo_d %>%
+        transmute(
+          Año = año, Mes = as.character(mes_factor(mes)),
+          `Tipo de atención` = str_to_title(tipo_de_atencion),
+          `Grupo de edad` = as.character(edad_grupo), Sexo = sexo,
+          `Tipo de pagador` = tipo_pagador,
+          Egresos = n_egresos,
+          `Estancia media (días)` = round(estancia_dias_prom, 1),
+          `Valor factura promedio` = round(valor_factura_prom)
+        ) %>%
+        arrange(Año, Mes)
+
+      dx_out <- dx_d %>%
+        transmute(
+          Año = año, Mes = as.character(mes_factor(mes)),
+          `Tipo de atención` = str_to_title(tipo_de_atencion),
+          `Capítulo CIE-10` = dx_capitulo, Código = dx_cod,
+          Diagnóstico = str_to_title(coalesce(dx_desc, "")),
+          Egresos = n_egresos
+        ) %>%
+        arrange(Año, Mes, desc(Egresos))
+
+      mensual_out <- sociodemo_d %>%
+        group_by(año, mes, tipo_de_atencion) %>%
+        summarise(Egresos = sum(n_egresos), .groups = "drop") %>%
+        transmute(Año = año, Mes = as.character(mes_factor(mes)),
+                  `Tipo de atención` = str_to_title(tipo_de_atencion), Egresos) %>%
+        arrange(Año, Mes)
+
+      sheets <- list(
+        Resumen         = resumen,
+        Sociodemografia = sociodemo_out,
+        Diagnosticos    = dx_out,
+        Mensual         = mensual_out
+      )
+
+      if (!is.null(servicio_caci) && !is.na(as_caci_year_min) && yr[2] >= as_caci_year_min) {
+        caci_out <- as_caci_filt() %>%
+          transmute(
+            Año = año, Mes = as.character(mes_factor(mes)),
+            `Tipo de atención` = str_to_title(tipo_de_atencion),
+            `Condición clínica (CACI)` = as.character(caci),
+            Casos = n_casos,
+            `Valor factura total` = round(valor_factura_total)
+          ) %>%
+          arrange(Año, Mes)
+        if (nrow(caci_out) > 0) sheets$CACI <- caci_out
+      }
+
+      writexl::write_xlsx(sheets, file)
+    }
+  )
+
+  # ══════════════════════════════════════════════════════════════════════════
   # Tab · Mapa de pacientes geocodificados
   # ══════════════════════════════════════════════════════════════════════════
   map_filt <- reactive({
@@ -1573,6 +2268,58 @@ server <- function(input, output, session) {
     filename = function() paste0("dime_mapa_pacientes_", format(Sys.Date(), "%Y%m%d"), ".csv"),
     content = function(file) {
       readr::write_excel_csv(map_filt(), file, na = "")
+    }
+  )
+
+  # ── Export de contactos (comms) — gateado por contraseña compartida ────────
+  comms_authed <- reactiveVal(FALSE)
+
+  output$comms_export_ui <- renderUI({
+    if (is.null(patient_contacts) || is.null(COMMS_EXPORT_PWD)) {
+      return(tags$p(tags$em(
+        "Export de contactos no disponible en este servidor ",
+        "(faltan datos o configuración).")))
+    }
+    if (!comms_authed()) {
+      tagList(
+        passwordInput("comms_pwd", NULL, placeholder = "Contraseña"),
+        actionButton("comms_unlock", "Desbloquear", icon = icon("unlock"), class = "btn-sm")
+      )
+    } else {
+      downloadButton("comms_download", "Descargar contactos (CSV)", class = "btn-sm btn-warning")
+    }
+  })
+
+  observeEvent(input$comms_unlock, {
+    if (identical(input$comms_pwd, COMMS_EXPORT_PWD)) {
+      comms_authed(TRUE)
+    } else {
+      showNotification("Contraseña incorrecta.", type = "error")
+    }
+  })
+
+  # Mismos filtros que map_filt(), aplicados sobre el dataset CON nombre/teléfono.
+  comms_filt <- reactive({
+    req(patient_contacts)
+    yr <- as.integer(input$map_yr)
+    df <- patient_contacts %>%
+      filter(tipo_pagador %in% input$map_pagador,
+             as.character(frecuencia) %in% input$map_frecuencia,
+             as.character(servicio) %in% input$map_servicio,
+             as.character(tipo_atencion) %in% input$map_atencion,
+             as.character(caci) %in% input$map_caci_tipo)
+    if (!is.na(yr) && yr > 0) df <- df %>% filter(año == yr)
+    df %>%
+      distinct(id_num, .keep_all = TRUE) %>%
+      select(nombre, id_num, telefono_1, telefono_2, municipio, comuna,
+             tipo_pagador, caci, servicio)
+  })
+
+  output$comms_download <- downloadHandler(
+    filename = function() paste0("dime_contactos_", format(Sys.Date(), "%Y%m%d"), ".csv"),
+    content = function(file) {
+      req(comms_authed())
+      readr::write_excel_csv(comms_filt(), file, na = "")
     }
   )
 

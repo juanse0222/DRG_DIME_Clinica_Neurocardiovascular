@@ -32,7 +32,8 @@ serv_colors <- c(
   "UCIN ANGIO"     = "#76B7B2",
   "URGENCIAS OBS"  = "#4E79A7",
   "PISO HOSP"      = "#59A14F",
-  "UCIN RESPIRATORIOS" = "#B07AA1"
+  "UCIN RESPIRATORIOS" = "#B07AA1",
+  "Extensión Hospitalización" = "#EDC948"
 )
 
 caci_colors <- c(
@@ -252,6 +253,12 @@ if (cache_stale) {
         estacion == "UCIN ANGIO"            ~ "UCIN ANGIO",
         estacion == "URGENCIAS_OBSERVACION" ~ "URGENCIAS OBS",
         estacion == "HOSPITALIZACION 3 PISO"~ "PISO HOSP",
+        # Desde 2026 la clínica separó lo que antes era "UCIN ANGIO" en dos
+        # flujos: recuperación post-procedimiento (RECUPERACION DE
+        # ANGIOGRAFIA, excluida más abajo) y hospitalización real de esos
+        # pacientes en el piso 4 ("HOSPITALIZACION 4 PISO"), que el negocio
+        # llama Extensión Hospitalización. No fusionar con ninguna de las dos.
+        estacion == "HOSPITALIZACION 4 PISO"~ "Extensión Hospitalización",
         TRUE ~ estacion
       )
     ) %>%

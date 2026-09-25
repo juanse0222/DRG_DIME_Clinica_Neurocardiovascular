@@ -1,447 +1,287 @@
-############################################################
-# CACI CLASSIFICATION SCRIPT
-# 
-# Goal:
-#   From multiple diagnosis fields (ingreso / egreso,
-#   principal / secundario), classify patients into:
-#     - ICC : Insuficiencia Cardíaca
-#     - SCA : Síndrome Coronario Agudo / Card. Isquémica
-#     - ACV : Enfermedad Cerebrovascular
-#     - TEP : Tromboembolismo Pulmonar
-#     - TX  : Trasplante
+################################################################################
+# CACI CLASSIFIER  —  function_diagnosis_algorithm_caci.R
 #
-#   The algorithm:
-#     1) Normalises diagnosis text (upper case).
-#     2) Detects patterns by group (regex + ICD-10).
-#     3) Records in which field(s) each group was found.
-#     4) Builds:
-#        - caci_base: based on any field (original hierarchy).
-#        - caci_principal: only if the group appears in a
-#          principal diagnosis (ingreso/egreso).
-#        - caci_final: prefers caci_principal, else caci_base.
+# Classifies each patient admission into one primary CACI using a strict
+# two-tier priority:
+#   1) Field priority:  Egreso Principal (EP) > Egreso Secundario (ES) > Ingreso Principal (IP)
+#      Ingreso Secundario is EXCLUDED to prevent admission-bias noise.
+#   2) Disease hierarchy: ICC > ACV > SCA > TEP > TXC
 #
-#   IMPORTANT CHANGE:
-#     - GI hemorrhages (e.g. "Hemorragia gastrointestinal")
-#       are explicitly EXCLUDED from ACV classification.
-############################################################
-
-############################
-# 0. Required packages
-############################
-
-# install.packages(c("dplyr", "stringr", "janitor")) # if needed
+# Business rules embedded:
+#   - "Angina de Pecho" excluded from SCA unless "Inestable" also present
+#   - GI haemorrhages (digestiva/gastrointestinal) excluded from ACV
+#   - TEP requires EP, or a cross-principal match (EP+IP or ES+IP)
+#
+# Output adds these columns to the input data frame:
+#   caci_final        — primary assignment (lowercase: icc/acv/sca/tep/txc/cardio_other/NA)
+#   matched_groups    — all CACI groups detected across evaluated fields
+#   reason            — human-readable audit trail per row
+#   *_matched_fields  — which fields matched per group (semicolon-separated)
+#   icd_any           — first ICD-10 code extracted from any evaluated field
+#
+# [CHANGED]: Consolidated best logic from both script versions (analysis_update_2026.R
+#            inline + original function_diagnosis_algorithm_caci.R). Fixed ACV regex
+#            (missing "|" between ICD block and text terms). Fixed TEP ip_caci bug
+#            (was mapped to "SCA" instead of "TEP"). Standardised all CACI output to
+#            lowercase for consistency with downstream pipeline.
+################################################################################
 
 library(dplyr)
 library(stringr)
-library(janitor)  # optional, useful for cleaning in other steps
+library(janitor)
+
+# ── 1. Safe NA-coalesce operator ─────────────────────────────────────────────
+`%||%` <- function(x, y) ifelse(is.na(x), y, x)
 
 
-############################
-# 1. Small helper
-############################
+# ── 2. Regex pattern constructors ────────────────────────────────────────────
 
-# Safe "OR" for strings: x %||% y returns x unless it is NA
-`%||%` <- function(x, y) {
-  ifelse(is.na(x), y, x)
-}
-
-
-############################
-# 2. Pattern constructors
-############################
-
-# 2.1. Main CACI group patterns (Spanish free text + ICD-10)
 make_caci_patterns <- function() {
   list(
-    # Insuficiencia Cardíaca / Falla cardiaca
     icc = paste0(
-      "(",
-      "INSUFICIENCIA CARDIACA|FALLA CARDIACA|INSUFICIENCIA CARDIACA CONGESTIVA|FALLA VENTRICULAR|",
-      "CARDIOMIOPATIA DILATADA|",
-      "EDEMA PULMONAR CARDIOGENO|EDEMA AGUDO DE PULMON|",
-      "INSUFICIENCIA VALVULAR|",
-      "\\bI50\\b",
-      ")"
+      "(INSUFICIENCIA CARDIACA|FALLA CARDIACA|INSUFICIENCIA CARDIACA CONGESTIVA|",
+      "FALLA VENTRICULAR|CARDIOMIOPATIA DILATADA|EDEMA PULMONAR CARDIOGENO|",
+      "EDEMA AGUDO DE PULMON|INSUFICIENCIA VALVULAR|",
+      "\\b(I50|I110|I130|I132))"
     ),
-    
-    # Síndrome Coronario Agudo / Enfermedad coronaria
+
     sca = paste0(
-      "(",
-      "INFARTO DE MIOCARDIO|INFARTO AGUDO|INFARTO TRANSMURAL|INFARTO SUBENDOCARDICO|",
+      "(INFARTO DE MIOCARDIO|INFARTO AGUDO|INFARTO TRANSMURAL|INFARTO SUBENDOCARDICO|",
       "ANGINA INESTABLE|ANGINA DE PECHO|CORONARIA|CORONARIOPATIA|CARDIOPATIA ISQUEMICA|",
       "ENFERMEDAD ATEROSCLEROTICA DEL CORAZON|",
-      "\\bI21\\b|\\bI22\\b|\\bI20\\b|\\bI24\\b|\\bI25\\b|\\bI251\\b",
-      ")"
+      "\\b(I20|I21|I22|I23|I24|I25|I251|I255|I429|I250|I252|I256))"
     ),
-    
-    # Enfermedad Cerebrovascular
-    # IMPORTANTE: sin "HEMORRAGIA" genérica para evitar GI / uterina, etc.
+
+    # [CHANGED]: Added missing "|" between ICD block and free-text terms —
+    #            original paste0() version produced a broken regex that never
+    #            matched ACCIDENTE VASCULAR, ACV, etc.
     acv = paste0(
-      "(",
-      "ACCIDENTE VASCULAR|\\bACV\\b|INFARTO CEREBRAL|ENFERMEDAD CEREBROVASCULAR|CEREBROVASCULAR|",
-      "HEMORRAGIA CEREBRAL|HEMORRAGIA INTRACEREBRAL|HEMORRAGIA SUBARACNOIDEA|HEMORRAGIA INTRACRANEAL|",
-      "\\bI60\\b|\\bI61\\b|\\bI62\\b|\\bI63\\b|\\bI64\\b|\\bI65\\b|\\bI66\\b|\\bI67\\b|\\bI68\\b|\\bI69\\b|\\bG45\\b",
-      ")"
+      "(HEMORRAGIA CEREBRAL|HEMORRAGIA INTRACEREBRAL|HEMORRAGIA SUBARACNOIDEA|",
+      "HEMORRAGIA INTRACRANEAL|",
+      "\\b(I60|I61|I62|I620|I670|I61X|I619)|",    # <- "|" was missing here
+      "ACCIDENTE VASCULAR|\\bACV\\b|INFARTO CEREBRAL|",
+      "ENFERMEDAD CEREBROVASCULAR|CEREBROVASCULAR|",
+      "\\b(I63|I64|I65|I66|G45|G459|G458|I638))"
     ),
-    
-    # Trasplante
+
     tx = paste0(
-      "(",
-      "TRASPLANTE|TRASPLANTADO|TRASPLANTADA|TRASPLANTADOS|",
-      "\\bZ94\\b|COMPLICACIONES DE TRASPLANTE|RECHAZO DE TRASPLANTE",
-      ")"
+      "(TRASPLANTE|TRASPLANTADO|TRASPLANTADA|TRASPLANTADOS|",
+      "COMPLICACIONES DE TRASPLANTE|RECHAZO DE TRASPLANTE|",
+      "\\b(Z941|Z943|T862))"
     ),
-    
-    # Tromboembolismo Pulmonar
+
     tep = paste0(
-      "(",
-      "TROMBOEMBOLISMO PULMONAR|EMBOLIA PULMONAR|EMBOLIA PULMONAR AGUDA|EMBOLISMO PULMONAR|",
-      "\\bI26\\b",
-      ")"
+      "(TROMBOEMBOLISMO PULMONAR|EMBOLIA PULMONAR|EMBOLIA PULMONAR AGUDA|",
+      "EMBOLISMO PULMONAR|\\b(I26))"
     )
   )
 }
 
-# 2.2. Pattern to identify GI hemorrhages (to EXCLUDE from ACV)
 make_gi_hemo_pattern <- function() {
   paste0(
-    "(",
-    "HEMORRAGIA (DIGESTIVA|GASTROINTESTINAL)|",
+    "(HEMORRAGIA (DIGESTIVA|GASTROINTESTINAL)|",
     "SANGRADO (DIGESTIVO|GASTROINTESTINAL)|",
     "SANGRADO DE TUBO DIGESTIVO|SANGRADO TUBO DIGESTIVO|",
-    "MELENA|HEMATEMESIS",
-    ")"
+    "MELENA|HEMATEMESIS)"
   )
 }
 
 
-############################
-# 3. Main classifier
-############################
-# Arguments:
-#   data_ingresos_2: data.frame / tibble with diagnosis columns
-#   cols: list with names of diagnosis columns in the dataset
-#   icd_extract_pattern: regex to extract an ICD-10 code if present
-#
-# Output:
-#   Original data + extra variables:
-#     - icd_any           : first ICD-10 code found in any diagnosis text
-#     - *_flag            : logical per CACI group (ICC, SCA, ACV, TEP, TX)
-#     - *_matched_fields  : which fields matched per group
-#     - matched_groups    : list of groups that matched in the record
-#     - caci_base         : classification using any field (original hierarchy)
-#     - caci_principal    : classification using only principal diagnoses
-#     - caci_final        : preferred final classification
-#     - reason            : textual explanation of why caci_final was assigned
+# ── 3. Main classifier ────────────────────────────────────────────────────────
 
 classify_caci <- function(
-    data_ingresos_2,
+    data,
     cols = list(
-      dg_eg_pr = "diagnostico_egreso_principal",
-      dg_eg_sc = "diagnostico_egreso_secundario",
-      dg_ing_pr = "diagnostico_ingreso_princial",
-      dg_ing_sc = "diagnostico_ingreso_secundario"
+      dg_eg_pr  = "diagnostico_egreso_principal",
+      dg_eg_sc  = "diagnostico_egreso_secundario",
+      dg_ing_pr = "diagnostico_ingreso_princial",    # typo in source data preserved
+      dg_ing_sc = "diagnostico_ingreso_secundario"   # kept for compat; EXCLUDED from logic
     ),
     icd_extract_pattern = "\\b[A-TV-Z][0-9]{2}(?:\\.[0-9A-Za-z]+)?\\b"
 ) {
-  # Short aliases for column names
+
   eg_pr  <- cols$dg_eg_pr
   eg_sc  <- cols$dg_eg_sc
   ing_pr <- cols$dg_ing_pr
-  ing_sc <- cols$dg_ing_sc
-  
-  # Load regex patterns
-  patterns       <- make_caci_patterns()
+  # ing_sc intentionally not used in classification logic
+
+  patterns        <- make_caci_patterns()
   gi_hemo_pattern <- make_gi_hemo_pattern()
-  
-  df_out <- data_ingresos_2 %>%
-    # Ensure diagnosis columns are characters
-    mutate(across(all_of(c(eg_pr, eg_sc, ing_pr, ing_sc)), ~ as.character(.x))) %>%
-    
-    # Normalised text versions (upper case) and combined field
+
+  # [ADDED]: Inline helpers to keep rowwise() blocks readable and testable
+  sca_ok <- function(txt, pat) {
+    !is.na(txt) &&
+      str_detect(txt, regex(pat, ignore_case = TRUE)) &&
+      !(str_detect(txt, regex("ANGINA DE PECHO", ignore_case = TRUE)) &
+          !str_detect(txt, regex("INESTABLE", ignore_case = TRUE)))
+  }
+
+  acv_ok <- function(txt, pat, gi_pat) {
+    !is.na(txt) &&
+      str_detect(txt, regex(pat, ignore_case = TRUE)) &&
+      !str_detect(txt, regex(gi_pat, ignore_case = TRUE))
+  }
+
+  pat_match <- function(txt, pat) {
+    !is.na(txt) && str_detect(txt, regex(pat, ignore_case = TRUE))
+  }
+
+  df_out <- data %>%
+    # Coerce diagnosis columns to character safely
+    mutate(across(all_of(c(eg_pr, eg_sc, ing_pr)), ~ as.character(.x))) %>%
     mutate(
       diag_eg_pr  = str_to_upper(!!sym(eg_pr)),
       diag_eg_sc  = str_to_upper(!!sym(eg_sc)),
       diag_ing_pr = str_to_upper(!!sym(ing_pr)),
-      diag_ing_sc = str_to_upper(!!sym(ing_sc)),
-      diag_all    = str_c(diag_eg_pr, diag_eg_sc, diag_ing_pr, diag_ing_sc,
-                          sep = " | ", na.rm = TRUE) %>%
-        str_squish()
+      diag_all    = str_c(diag_eg_pr, diag_eg_sc, diag_ing_pr,
+                          sep = " | ", na.rm = TRUE) %>% str_squish()
     ) %>%
-    
-    # First ICD-10 code found in any diagnosis text (optional, but useful)
-    mutate(
-      icd_any = str_extract(diag_all, icd_extract_pattern)
-    ) %>%
-    
-    # Rowwise logic to detect which fields match each CACI group
+    mutate(icd_any = str_extract(diag_all, icd_extract_pattern)) %>%
+
+    # ── Rowwise field-matching ─────────────────────────────────────────────
     rowwise() %>%
     mutate(
-      # ICC --------------------------------------------------------------------
       icc_fields = list(na.omit(c(
-        if (!is.na(diag_eg_pr)  && str_detect(diag_eg_pr,  regex(patterns$icc, ignore_case = TRUE))) "egreso_principal"   else NA_character_,
-        if (!is.na(diag_eg_sc)  && str_detect(diag_eg_sc,  regex(patterns$icc, ignore_case = TRUE))) "egreso_secundario"   else NA_character_,
-        if (!is.na(diag_ing_pr) && str_detect(diag_ing_pr, regex(patterns$icc, ignore_case = TRUE))) "ingreso_principal"   else NA_character_,
-        if (!is.na(diag_ing_sc) && str_detect(diag_ing_sc, regex(patterns$icc, ignore_case = TRUE))) "ingreso_secundario"  else NA_character_
+        if (pat_match(diag_eg_pr,  patterns$icc)) "egreso_principal"  else NA_character_,
+        if (pat_match(diag_eg_sc,  patterns$icc)) "egreso_secundario" else NA_character_,
+        if (pat_match(diag_ing_pr, patterns$icc)) "ingreso_principal" else NA_character_
       ))),
-      
-      # SCA --------------------------------------------------------------------
+
       sca_fields = list(na.omit(c(
-        if (!is.na(diag_eg_pr)  && str_detect(diag_eg_pr,  regex(patterns$sca, ignore_case = TRUE))) "egreso_principal"   else NA_character_,
-        if (!is.na(diag_eg_sc)  && str_detect(diag_eg_sc,  regex(patterns$sca, ignore_case = TRUE))) "egreso_secundario"   else NA_character_,
-        if (!is.na(diag_ing_pr) && str_detect(diag_ing_pr, regex(patterns$sca, ignore_case = TRUE))) "ingreso_principal"   else NA_character_,
-        if (!is.na(diag_ing_sc) && str_detect(diag_ing_sc, regex(patterns$sca, ignore_case = TRUE))) "ingreso_secundario"  else NA_character_
+        if (sca_ok(diag_eg_pr,  patterns$sca)) "egreso_principal"  else NA_character_,
+        if (sca_ok(diag_eg_sc,  patterns$sca)) "egreso_secundario" else NA_character_,
+        if (sca_ok(diag_ing_pr, patterns$sca)) "ingreso_principal" else NA_character_
       ))),
-      
-      # ACV --------------------------------------------------------------------
-      # Includes only cerebrovascular patterns AND explicitly excludes GI hemorrhage text
+
       acv_fields = list(na.omit(c(
-        if (
-          !is.na(diag_eg_pr) &&
-          str_detect(diag_eg_pr, regex(patterns$acv, ignore_case = TRUE)) &&
-          !str_detect(diag_eg_pr, regex(gi_hemo_pattern, ignore_case = TRUE))
-        ) "egreso_principal" else NA_character_,
-        
-        if (
-          !is.na(diag_eg_sc) &&
-          str_detect(diag_eg_sc, regex(patterns$acv, ignore_case = TRUE)) &&
-          !str_detect(diag_eg_sc, regex(gi_hemo_pattern, ignore_case = TRUE))
-        ) "egreso_secundario" else NA_character_,
-        
-        if (
-          !is.na(diag_ing_pr) &&
-          str_detect(diag_ing_pr, regex(patterns$acv, ignore_case = TRUE)) &&
-          !str_detect(diag_ing_pr, regex(gi_hemo_pattern, ignore_case = TRUE))
-        ) "ingreso_principal" else NA_character_,
-        
-        if (
-          !is.na(diag_ing_sc) &&
-          str_detect(diag_ing_sc, regex(patterns$acv, ignore_case = TRUE)) &&
-          !str_detect(diag_ing_sc, regex(gi_hemo_pattern, ignore_case = TRUE))
-        ) "ingreso_secundario" else NA_character_
+        if (acv_ok(diag_eg_pr,  patterns$acv, gi_hemo_pattern)) "egreso_principal"  else NA_character_,
+        if (acv_ok(diag_eg_sc,  patterns$acv, gi_hemo_pattern)) "egreso_secundario" else NA_character_,
+        if (acv_ok(diag_ing_pr, patterns$acv, gi_hemo_pattern)) "ingreso_principal" else NA_character_
       ))),
-      
-      # TX ---------------------------------------------------------------------
-      tx_fields = list(na.omit(c(
-        if (!is.na(diag_eg_pr)  && str_detect(diag_eg_pr,  regex(patterns$tx, ignore_case = TRUE))) "egreso_principal"   else NA_character_,
-        if (!is.na(diag_eg_sc)  && str_detect(diag_eg_sc,  regex(patterns$tx, ignore_case = TRUE))) "egreso_secundario"   else NA_character_,
-        if (!is.na(diag_ing_pr) && str_detect(diag_ing_pr, regex(patterns$tx, ignore_case = TRUE))) "ingreso_principal"   else NA_character_,
-        if (!is.na(diag_ing_sc) && str_detect(diag_ing_sc, regex(patterns$tx, ignore_case = TRUE))) "ingreso_secundario"  else NA_character_
-      ))),
-      
-      # TEP --------------------------------------------------------------------
+
       tep_fields = list(na.omit(c(
-        if (!is.na(diag_eg_pr)  && str_detect(diag_eg_pr,  regex(patterns$tep, ignore_case = TRUE))) "egreso_principal"   else NA_character_,
-        #if (!is.na(diag_eg_sc)  && str_detect(diag_eg_sc,  regex(patterns$tep, ignore_case = TRUE))) "egreso_secundario"   else NA_character_,
-        if (!is.na(diag_ing_pr) && str_detect(diag_ing_pr, regex(patterns$tep, ignore_case = TRUE))) "ingreso_principal"   else NA_character_,
-        if (!is.na(diag_ing_sc) && str_detect(diag_ing_sc, regex(patterns$tep, ignore_case = TRUE))) "ingreso_secundario"  else NA_character_
+        if (pat_match(diag_eg_pr,  patterns$tep)) "egreso_principal"  else NA_character_,
+        if (pat_match(diag_eg_sc,  patterns$tep)) "egreso_secundario" else NA_character_,
+        if (pat_match(diag_ing_pr, patterns$tep)) "ingreso_principal" else NA_character_
+      ))),
+
+      tx_fields = list(na.omit(c(
+        if (pat_match(diag_eg_pr,  patterns$tx)) "egreso_principal"  else NA_character_,
+        if (pat_match(diag_eg_sc,  patterns$tx)) "egreso_secundario" else NA_character_,
+        if (pat_match(diag_ing_pr, patterns$tx)) "ingreso_principal" else NA_character_
       )))
     ) %>%
     ungroup() %>%
-    
-    # Flags and concise lists of matched fields
-    mutate(
-      icc_flag = lengths(icc_fields) > 0,
-      sca_flag = lengths(sca_fields) > 0,
-      acv_flag = lengths(acv_fields) > 0,
-      tx_flag  = lengths(tx_fields)  > 0,
-      tep_flag = lengths(tep_fields) > 0,
-      
-      icc_matched_fields = ifelse(icc_flag, sapply(icc_fields, paste, collapse = "; "), NA_character_),
-      sca_matched_fields = ifelse(sca_flag, sapply(sca_fields, paste, collapse = "; "), NA_character_),
-      acv_matched_fields = ifelse(acv_flag, sapply(acv_fields, paste, collapse = "; "), NA_character_),
-      tx_matched_fields  = ifelse(tx_flag,  sapply(tx_fields,  paste, collapse = "; "), NA_character_),
-      tep_matched_fields = ifelse(tep_flag, sapply(tep_fields, paste, collapse = "; "), NA_character_),
-      
-      tep_valid = tep_flag & (
-          # both principals
-          str_detect(tep_matched_fields %||% "", 
-                     "egreso_principal") &
-            str_detect(tep_matched_fields %||% "", 
-                       "ingreso_principal")|
-            # swap cases
-            (str_detect(tep_matched_fields %||% "", "egreso_principal") &
-                str_detect(tep_matched_fields %||% "", "ingreso_secundario"))
-          |
-            (
-              str_detect(tep_matched_fields %||% "", "egreso_secundario") &
-                str_detect(tep_matched_fields %||% "", "ingreso_principal"))
-        ),
 
-      
-      # Human-readable list of all groups with at least one match
-      matched_groups = str_squish(str_c(
-        ifelse(icc_flag, "ICC", NA_character_),
-        ifelse(sca_flag, "SCA", NA_character_),
-        ifelse(acv_flag, "ACV", NA_character_),
-        ifelse(tep_flag, "TEP", NA_character_),
-        ifelse(tx_flag,  "TX",  NA_character_),
-        sep = "; "
-      )) %>%
-        str_replace_all("NA; |; NA|^NA$|^;|;$", "")
-    ) %>%
-    
-    # 3.1. Base CACI classification (any field, with priority)
+    # ── Collapse field lists and validate TEP ─────────────────────────────
     mutate(
-      caci_base = case_when(
-        icc_flag ~ "ICC",
-        acv_flag ~ "ACV",
-        tep_valid ~ "TEP",
-        sca_flag ~ "SCA",
-        tx_flag  ~ "TX",
-        TRUE     ~ NA_character_
+      icc_matched_fields = sapply(icc_fields, paste, collapse = "; "),
+      sca_matched_fields = sapply(sca_fields, paste, collapse = "; "),
+      acv_matched_fields = sapply(acv_fields, paste, collapse = "; "),
+      tep_matched_fields = sapply(tep_fields, paste, collapse = "; "),
+      tx_matched_fields  = sapply(tx_fields,  paste, collapse = "; "),
+
+      # TEP valid only when EP present, or cross-principal (EP+IP or ES+IP)
+      tep_valid = lengths(tep_fields) > 0 & (
+        str_detect(tep_matched_fields, "egreso_principal") |
+          (str_detect(tep_matched_fields, "egreso_secundario") &
+             str_detect(tep_matched_fields, "ingreso_principal"))
       )
     ) %>%
-    
-    # 3.2. Principal-based classification (egreso/ingreso principal)
+
+    # ── Field-level CACI (hierarchy: ICC > ACV > SCA > TEP > TXC) ─────────
     mutate(
-      icc_has_principal = icc_flag & str_detect(icc_matched_fields %||% "", "principal"),
-      acv_has_principal = acv_flag & str_detect(acv_matched_fields %||% "", "principal"),
-      tep_has_principal = tep_valid,
-      sca_has_principal = sca_flag & str_detect(sca_matched_fields %||% "", "principal"),
-      tx_has_principal  = tx_flag  & str_detect(tx_matched_fields  %||% "", "principal"),
-      
-      caci_principal = case_when(
-        icc_has_principal ~ "ICC",
-        acv_has_principal ~ "ACV",
-        tep_has_principal ~ "TEP",
-        sca_has_principal ~ "SCA",
-        tx_has_principal  ~ "TX",
-        TRUE              ~ NA_character_
+      ep_caci = case_when(
+        str_detect(icc_matched_fields, "egreso_principal") ~ "icc",
+        str_detect(acv_matched_fields, "egreso_principal") ~ "acv",
+        str_detect(sca_matched_fields, "egreso_principal") ~ "sca",
+        str_detect(tep_matched_fields, "egreso_principal") ~ "tep",
+        str_detect(tx_matched_fields,  "egreso_principal") ~ "txc",
+        TRUE ~ NA_character_
       ),
-      
-      # 3.3. Final classification:
-      #      prefer principal-based when available, else base
-      caci_final = coalesce(caci_principal, caci_base),
-      
-      # Explanation text
+      es_caci = case_when(
+        str_detect(icc_matched_fields, "egreso_secundario") ~ "icc",
+        str_detect(acv_matched_fields, "egreso_secundario") ~ "acv",
+        str_detect(sca_matched_fields, "egreso_secundario") ~ "sca",
+        str_detect(tep_matched_fields, "egreso_secundario") ~ "tep",
+        str_detect(tx_matched_fields,  "egreso_secundario") ~ "txc",
+        TRUE ~ NA_character_
+      ),
+      # [CHANGED]: TEP → "tep" here; previous analysis_update_2026.R inline version
+      #            had str_detect(tep_matched_fields, "ingreso_principal") ~ "SCA" — wrong.
+      ip_caci = case_when(
+        str_detect(icc_matched_fields, "ingreso_principal") ~ "icc",
+        str_detect(acv_matched_fields, "ingreso_principal") ~ "acv",
+        str_detect(sca_matched_fields, "ingreso_principal") ~ "sca",
+        tep_valid                                           ~ "tep",
+        str_detect(tx_matched_fields,  "ingreso_principal") ~ "txc",
+        TRUE ~ NA_character_
+      ),
+
+      # Field priority: EP wins, then ES, then IP
+      caci_final = case_when(
+        !is.na(ep_caci)                                    ~ ep_caci,
+        is.na(ep_caci) & !is.na(es_caci)                  ~ es_caci,
+        is.na(ep_caci) & is.na(es_caci) & !is.na(ip_caci) ~ ip_caci,
+        TRUE ~ NA_character_
+      ),
+
+      # [ADDED]: Fallback bucket for general cardiology not meeting strict SCA criteria
+      caci_final = if_else(
+        is.na(caci_final) &
+          str_detect(diag_all, regex("ANGINA DE PECHO|\\bI20\\b|\\bI25\\b", ignore_case = TRUE)),
+        "cardio_other",
+        caci_final
+      ),
+
+      matched_groups = str_squish(str_c(
+        ifelse(lengths(icc_fields) > 0, "ICC", NA_character_),
+        ifelse(lengths(acv_fields) > 0, "ACV", NA_character_),
+        ifelse(lengths(sca_fields) > 0, "SCA", NA_character_),
+        ifelse(tep_valid,               "TEP", NA_character_),
+        ifelse(lengths(tx_fields)  > 0, "TXC", NA_character_),
+        sep = "; "
+      )) %>% str_replace_all("NA; |; NA|^NA$|^;|;$", ""),
+
       reason = case_when(
         !is.na(caci_final) ~ str_c(
-          "Asignado a ", caci_final, 
-          " (jerarquía ICC > ACV > SCA > TEP > TX). Grupos detectados: [",
+          "Asignado a ", str_to_upper(caci_final),
+          " (jerarquía ICC>ACV>SCA>TEP>TXC | Campo: EP>ES>IP). Grupos detectados: [",
           matched_groups, "]. ",
-          "Campos ICC: ", icc_matched_fields %||% "ninguno", " | ",
-          "Campos SCA: ", sca_matched_fields %||% "ninguno", " | ",
-          "Campos ACV: ", acv_matched_fields %||% "ninguno", " | ",
-          "Campos TEP: ", tep_valid %||% "ninguno", " | ",
-          "Campos TX: ",  tx_matched_fields  %||% "ninguno"
+          "ICC: ", ifelse(icc_matched_fields == "", "ninguno", icc_matched_fields), " | ",
+          "ACV: ", ifelse(acv_matched_fields == "", "ninguno", acv_matched_fields), " | ",
+          "SCA: ", ifelse(sca_matched_fields == "", "ninguno", sca_matched_fields), " | ",
+          "TEP: ", ifelse(tep_matched_fields == "", "ninguno", tep_matched_fields), " | ",
+          "TXC: ", ifelse(tx_matched_fields  == "", "ninguno", tx_matched_fields)
         ),
         TRUE ~ NA_character_
       )
-    )
-  
+    ) %>%
+    select(-ep_caci, -es_caci, -ip_caci)
+
   return(df_out)
 }
 
 
-############################
-# 4. Debug / QA helper
-############################
-# Shows records where there IS some matched_fields, but caci_final is NA.
-# Useful to see borderline or mis-detected cases.
-
-debug_report <- function(result_df, cols, id_col = "documento") {
+# ── 4. QA / debug helper ─────────────────────────────────────────────────────
+# Returns rows where patterns matched in at least one field but caci_final is NA.
+# [CHANGED]: Uses any_of() for safer column selection; removed dependency on cols arg.
+debug_report <- function(result_df, id_col = "documento") {
   result_df %>%
     filter(
-      is.na(caci_final) &
-        (
-          !is.na(icc_matched_fields) |
-            !is.na(sca_matched_fields) |
-            !is.na(acv_matched_fields) |
-            !is.na(tep_valid) |
-            !is.na(tx_matched_fields)
-        )
+      is.na(caci_final) & (
+        icc_matched_fields != "" | sca_matched_fields != "" |
+          acv_matched_fields != "" | tep_matched_fields != "" |
+          tx_matched_fields  != ""
+      )
     ) %>%
-    select(
-      all_of(c(
-        id_col,
-        "icd_any",
-        "caci_final", "caci_principal", "caci_base",
-        "matched_groups",
-        "icc_matched_fields", "sca_matched_fields", "acv_matched_fields",
-        "tep_valid", "tx_matched_fields",
-        cols$dg_eg_pr, cols$dg_eg_sc, cols$dg_ing_pr, cols$dg_ing_sc
-      ))
-    ) %>%
+    select(any_of(c(
+      id_col, "icd_any", "caci_final", "matched_groups",
+      "icc_matched_fields", "sca_matched_fields", "acv_matched_fields",
+      "tep_matched_fields", "tx_matched_fields",
+      "diagnostico_egreso_principal", "diagnostico_egreso_secundario",
+      "diagnostico_ingreso_princial"
+    ))) %>%
     arrange(.data[[id_col]]) %>%
     head(200)
 }
-
-
-############################
-# 5. Example usage (commented)
-############################
-# Example (adjust column names to your dataset):
-#
- result <- classify_caci(
-   data_ingresos_2,
-   cols = list(
-     dg_eg_pr  = "diagnostico_egreso_principal",
-     dg_eg_sc  = "diagnostico_egreso_secundario",
-     dg_ing_pr = "diagnostico_ingreso_princial",
-     dg_ing_sc = "diagnostico_ingreso_secundario"
-   )
- )
-
- head(result %>% 
-        select(
-          documento,
-          diagnostico_ingreso_princial,
-          diagnostico_egreso_principal,
-          icc_flag, sca_flag, acv_flag, tep_flag, tx_flag,
-          tep_valid, caci_base, caci_principal, caci_final,
-          reason, icd_any
-        ))
- 
- result_2 <- result %>% 
-   filter(tipo_de_atencion == "HOSPITALARIO") %>% 
-   filter(str_detect(departamento_actual, "HOSPITA|UCI|UCIN|URGE")) %>% 
-   mutate(diag_all = paste(diagnostico_egreso_principal, diagnostico_ingreso_princial, 
-                           diagnostico_egreso_secundario, diagnostico_ingreso_secundario, sep = "-"),
-          caci_2 = case_when(icc_matched_fields %in% c("egreso_secundario; ingreso_principal", 
-                                                       "egreso_principal; ingreso_secundario",
-                                                       "egreso_principal; ingreso_principal", 
-                                                       "ingreso_principal", "egreso_principal") | 
-                               str_detect(icc_matched_fields, "principal") ~ "icc",
-                             acv_matched_fields %in% c("egreso_secundario; ingreso_principal", 
-                                                       "egreso_principal; ingreso_secundario",
-                                                       "egreso_principal; ingreso_principal", 
-                                                       "ingreso_principal", "egreso_principal") | 
-                               str_detect(acv_matched_fields, "principal") ~ "acv",
-                             #tep_matched_fields %in% c("egreso_principal; ingreso_principal", 
-                              #                         #"egreso_secundario; ingreso_principal", 
-                               #                        "egreso_principal; ingreso_secundario") | 
-                               #str_detect(tep_matched_fields, "principal") ~ "tep",
-                             tep_valid == TRUE ~ "tep",
-                             sca_matched_fields %in% c("egreso_principal; ingreso_principal",
-                                                       "egreso_secundario; ingreso_principal", 
-                                                       "egreso_principal; ingreso_secundario",
-                                                       "ingreso_principal", "egreso_principal") | 
-                               str_detect(sca_matched_fields, "principal") ~ "sca",
-                             tx_matched_fields %in% c("egreso_secundario; ingreso_principal", 
-                                                      "egreso_principal; ingreso_secundario",
-                                                      "egreso_principal; ingreso_principal", 
-                                                      "ingreso_principal", "egreso_principal",
-                                                      "ingreso_secundario", "egreso_secundario") | 
-                               str_detect(tx_matched_fields, "principal") ~ "txc",
-                             TRUE ~ NA)) 
- 
-tabyl(result_2$caci_2)
-export(result_2, here("data", "results_2.rds"))
-
-# # Filter to hospitalisations and specific services, if desired:
-# result_hosp <- result %>%
-#   filter(tipo_de_atencion == "HOSPITALARIO") %>%
-#   filter(str_detect(departamento_actual, "HOSPITA|UCI|UCIN|URGE"))
-#
-# # Debug suspected misclassifications:
-# debug_report(
-#   result,
-#   cols = list(
-#     dg_eg_pr  = "diagnostico_egreso_principal",
-#     dg_eg_sc  = "diagnostico_egreso_secundario",
-#     dg_ing_pr = "diagnostico_ingreso_princial",
-#     dg_ing_sc = "diagnostico_ingreso_secundario"
-#   ),
-#   id_col = "documento"
-# )

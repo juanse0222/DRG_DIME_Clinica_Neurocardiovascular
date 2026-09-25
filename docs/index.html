@@ -77,7 +77,6 @@ ul.task-list li input[type="checkbox"] {
 
 <body class="nav-fixed quarto-light">
 
-
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top">
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
@@ -111,17 +110,20 @@ ul.task-list li input[type="checkbox"] {
 <span class="menu-text">LOS</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/" target="_blank">
+    <a class="nav-link" href="https://8cq8ch-juan0sebastian-hurtado0zapata.shinyapps.io/antibiotic_analysis/" target="_blank"> 
 <span class="menu-text">PROA</span></a>
-  </li>
-  </li>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="https://caci-acv-dime.shinyapps.io/calidad_vida_eq5d/" target="_blank"> 
+<span class="menu-text">Calidad de Vida</span></a>
+  </li>  
 </ul>
             <ul class="navbar-nav navbar-nav-scroll ms-auto">
   <li class="nav-item compact">
     <a class="nav-link" href="https://github.com/juanse0222/DRG_DIME_Clinica_Neurocardiovascular"> <i class="bi bi-github" role="img">
-</i>
+</i> 
 <span class="menu-text"></span></a>
-  </li>
+  </li>  
 </ul>
           </div> <!-- /navcollapse -->
             <div class="quarto-navbar-tools">
@@ -201,13 +203,6 @@ ul.task-list li input[type="checkbox"] {
   background: radial-gradient(circle, rgba(26,107,58,.2) 0%, transparent 70%);
   pointer-events: none;
 }
-.hero-logo {
-  display: block;
-  margin: 0 auto 20px;
-  height: 90px;
-  width: auto;
-  filter: drop-shadow(0 2px 12px rgba(0,0,0,.35));
-}
 .hero-eyebrow {
   font-size: .78rem;
   font-weight: 700;
@@ -215,7 +210,6 @@ ul.task-list li input[type="checkbox"] {
   text-transform: uppercase;
   color: rgba(255,255,255,.55);
   margin-bottom: 10px;
-  text-align: center;
 }
 .hero-title {
   font-size: 2.1rem;
@@ -223,17 +217,15 @@ ul.task-list li input[type="checkbox"] {
   line-height: 1.2;
   margin: 0 0 14px;
   color: white;
-  text-align: center;
 }
 .hero-sub {
   font-size: 1.05rem;
   color: rgba(255,255,255,.75);
   max-width: 640px;
   line-height: 1.65;
-  margin: 0 auto 28px;
-  text-align: center;
+  margin: 0 0 28px;
 }
-.hero-tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .hero-tag {
   background: rgba(255,255,255,.12);
   border: 1px solid rgba(255,255,255,.2);
@@ -380,6 +372,8 @@ ul.task-list li input[type="checkbox"] {
 .accent-mort   { border-top: 4px solid #A569BD; }
 .accent-proa   { border-top: 4px solid #CA6F1E; }
 .accent-los    { border-top: 4px solid #2E86C1; }
+.accent-cv     { border-top: 4px solid #2A9D8F; }
+
 /* ── CACI section ────────────────────────────────────────────────────── */
 .caci-section {
   background: var(--dime-light);
@@ -596,13 +590,6 @@ ul.task-list li input[type="checkbox"] {
   .pipe-arrow { transform: rotate(90deg); text-align: center; }
   .author-card { flex-direction: column; }
 }
-
-/* ── Full-width layout overrides ─────────────────────────────────────── */
-#quarto-content { max-width: 100% !important; }
-main.content { max-width: 100% !important; padding-left: 28px !important; padding-right: 28px !important; }
-.quarto-title-block { display: none !important; }
-#quarto-margin-sidebar { display: none !important; }
-
 </style>
 
 
@@ -610,7 +597,6 @@ main.content { max-width: 100% !important; padding-left: 28px !important; paddin
      HERO
 ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="hero-banner">
-  <img src="./images/DIME_logo.png" alt="DIME" class="hero-logo">
   <div class="hero-eyebrow">DIME Clínica Neurocardiovascular · Epidemiología</div>
   <h1 class="hero-title">Portal de Análisis<br>Clínico-Epidemiológico</h1>
   <p class="hero-sub">
@@ -623,8 +609,10 @@ main.content { max-width: 100% !important; padding-left: 28px !important; paddin
     <span class="hero-tag">🛏️ Estancias (LOS)</span>
     <span class="hero-tag">💀 Mortalidad Hospitalaria</span>
     <span class="hero-tag">💊 PROA · Antibióticos</span>
+    <span class="hero-tag">🩺 Calidad de Vida EQ-5D-3L</span>
   </div>
 </div>
+
 
 <!-- ══════════════════════════════════════════════════════════════════════════
      DASHBOARDS
@@ -757,10 +745,37 @@ main.content { max-width: 100% !important; padding-left: 28px !important; paddin
     </div>
   </a>
 
+  <!-- Calidad de Vida EQ-5D-3L -->
+  <a class="dash-card accent-cv" href="https://caci-acv-dime.shinyapps.io/calidad_vida_eq5d/" target="_blank">
+    <div class="dash-card-header">
+      <span class="dash-card-icon">🩺</span>
+      <span class="dash-card-badge badge-live">Interactivo</span>
+      <div class="dash-card-title">Calidad de Vida EQ-5D-3L</div>
+      <div class="dash-card-short">Captura clínica · CACI ACV / SCA · Seguimiento 3-6 meses</div>
+    </div>
+    <div class="dash-card-body">
+      <p class="dash-card-desc">
+        Aplicación de captura para que médicos y enfermería del CACI apliquen el
+        EQ-5D-3L a pacientes con ACV/ECV hemorrágica y Síndrome Coronario Agudo en
+        tres momentos (Ingreso, Egreso, Control 3-6 meses), y visualicen la evolución
+        de calidad de vida asociada a la intervención clínica.
+      </p>
+      <ul class="dash-card-features">
+        <li>Formulario de captura con diagnóstico CIE-10 parametrizado por CACI</li>
+        <li>Autocompletado desde el censo del día (documento, nombre, edad, teléfono)</li>
+        <li>Cálculo automático del índice EQ-5D-3L y escala EVA</li>
+        <li>Indicador institucional: % pacientes con mejoría ≥ 7 pts vs. meta</li>
+        <li>Panel por CACI: evolución por momento, dimensiones y cumplimiento mensual</li>
+        <li>Histórico 2023-2026 migrado (1051 pacientes, 2179 evaluaciones)</li>
+      </ul>
+    </div>
+    <div class="dash-card-footer">
+      <span class="dash-card-update">Actualizado sep 2026 · acceso con usuario y contraseña</span>
+      <span class="dash-card-btn" style="background:#2A9D8F;">Abrir →</span>
+    </div>
+  </a>
 
 </div>
-
-
 
 
 <!-- ══════════════════════════════════════════════════════════════════════════
@@ -1013,6 +1028,7 @@ main.content { max-width: 100% !important; padding-left: 28px !important; paddin
   if (el) el.textContent = texto;
 })();
 </script>
+
 
 
 </main> <!-- /main -->

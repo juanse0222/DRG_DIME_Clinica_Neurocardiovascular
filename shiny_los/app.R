@@ -6,7 +6,7 @@
 
 source("global.R")
 
-SERV_CORE <- c("UCI", "UCIN", "PISO HOSP")
+SERV_CORE <- c("UCI", "UCIN", "PISO HOSP", "Extensión Hospitalización")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # UI

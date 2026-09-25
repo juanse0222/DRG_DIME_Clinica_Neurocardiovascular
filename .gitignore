@@ -37,6 +37,9 @@ Thumbs.db
 *.zip
 *.tar.gz
 
+# secrets (shared passwords / gate credentials — never commit)
+comms_secret.R
+
 # others
 quarto/
 

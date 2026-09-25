@@ -16,12 +16,22 @@ library(plotly)
 library(DT)
 library(leaflet)
 library(sf)
+library(writexl)
 
 tryCatch(
   Sys.setlocale("LC_TIME", "es_ES.UTF-8"),
   warning = function(w) NULL,
   error   = function(e) NULL
 )
+
+# Contraseña del export de contactos (equipo de comunicaciones) — gitignored,
+# ver comms_secret.R. Sin este archivo el botón de descarga se deshabilita.
+if (file.exists("comms_secret.R")) {
+  source("comms_secret.R")
+} else {
+  message("[GRD-App] comms_secret.R no encontrado — export de contactos deshabilitado.")
+  COMMS_EXPORT_PWD <- NULL
+}
 
 # ── Paleta y etiquetas CACI ───────────────────────────────────────────────────
 # Jerarquía clínica: ICC > ACV > SCA > TEP > TxC > Otros CV
@@ -52,6 +62,17 @@ caci_colors <- c(
 # Abreviaturas de meses en español y helper para convertir mes entero → factor
 meses_abr <- c("Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic")
 mes_factor <- function(m) factor(meses_abr[as.integer(m)], levels = meses_abr)
+
+# Paleta Tableau 10 (misma familia de colores institucionales que caci_colors)
+# y helper para asignar un color estable a cada categoría de una serie
+# (p. ej. servicios en los gráficos de "Detalle mensual"), reciclando la
+# paleta si hay más de 10 categorías.
+tableau10 <- c("#4E79A7","#F28E2B","#E15759","#76B7B2","#59A14F",
+               "#EDC948","#B07AA1","#FF9DA7","#9C755F","#BAB0AC")
+service_palette <- function(x) {
+  cats <- sort(unique(x))
+  setNames(rep_len(tableau10, length(cats)), cats)
+}
 
 # ── Función de normalización CACI ─────────────────────────────────────────────
 # Convierte cualquier variante del código crudo al label limpio como factor
@@ -299,6 +320,65 @@ if (file.exists(file.path(data_dir, "perfil_pacientes.rds"))) {
 perfil_year_choices <- if (!is.null(perfil_pacientes))
   sort(unique(na.omit(perfil_pacientes$año)), decreasing = TRUE) else integer(0)
 
+# ── Egresos por servicio y reingresos a 20 días (histórico 2017-2026) ───────
+# pre-agregado por scripts/prep_discharges_trend.R desde
+# data/data_egresos_2017_2026.rds — año/mes/servicio, sin cédula ni nombre.
+if (file.exists(file.path(data_dir, "discharges_by_service.rds"))) {
+  discharges_by_service <- readRDS(file.path(data_dir, "discharges_by_service.rds"))
+} else {
+  message("[GRD-App] discharges_by_service.rds no encontrado — ejecuta scripts/prep_discharges_trend.R.")
+  message("          Se omite la pestaña 'Egresos y Reingresos'.")
+  discharges_by_service <- NULL
+}
+
+if (file.exists(file.path(data_dir, "readmissions_trend.rds"))) {
+  readmissions_trend <- readRDS(file.path(data_dir, "readmissions_trend.rds"))
+} else {
+  readmissions_trend <- NULL
+}
+
+dist_year_choices <- if (!is.null(discharges_by_service))
+  sort(unique(na.omit(discharges_by_service$año)), decreasing = TRUE) else integer(0)
+
+# Detalle mensual (dentro de la misma pestaña) — todos los servicios, con un
+# top 8 por volumen preseleccionado para que el gráfico de líneas no quede
+# saturado por defecto.
+if (!is.null(discharges_by_service)) {
+  dm_servicio_choices <- sort(unique(na.omit(discharges_by_service$servicio)))
+  dm_servicio_default <- discharges_by_service %>%
+    count(servicio, wt = n_egresos, sort = TRUE) %>%
+    slice_head(n = 8) %>%
+    pull(servicio)
+} else {
+  dm_servicio_choices <- character(0)
+  dm_servicio_default <- character(0)
+}
+
+# ── Autoservicio por servicio (Fase 1) ────────────────────────────────────────
+# pre-agregado por scripts/prep_autoservicio_servicio.R desde
+# data/data_egresos_2017_2026.rds (sociodemografía/diagnósticos, histórico
+# completo) y shiny_grd/data/data_grd_2_*_II.(rds|rda) (condición clínica
+# CACI, solo 2024 en adelante).
+as_load <- function(f) {
+  path <- file.path(data_dir, f)
+  if (file.exists(path)) readRDS(path) else NULL
+}
+servicio_sociodemo    <- as_load("servicio_sociodemo.rds")
+servicio_diagnosticos <- as_load("servicio_diagnosticos.rds")
+servicio_caci         <- as_load("servicio_caci.rds")
+
+if (is.null(servicio_sociodemo) || is.null(servicio_diagnosticos)) {
+  message("[GRD-App] servicio_sociodemo.rds / servicio_diagnosticos.rds no encontrados",
+          " — ejecuta scripts/prep_autoservicio_servicio.R.",
+          " Se omite la pestaña 'Autoservicio por Servicio'.")
+}
+
+as_servicio_choices <- dm_servicio_choices
+as_year_choices <- if (!is.null(servicio_sociodemo))
+  sort(unique(na.omit(servicio_sociodemo$año)), decreasing = TRUE) else integer(0)
+as_caci_year_min <- if (!is.null(servicio_caci) && nrow(servicio_caci) > 0)
+  min(servicio_caci$año, na.rm = TRUE) else NA_integer_
+
 # ── Mapa de pacientes geocodificados (EAPB / SLE / CACI) ─────────────────────
 # pre-generado por scripts/geocode_addresses.R desde data/data_cense_2017_2026.rds
 # vía un servidor Nominatim local (self-hosted). Sin cédula, nombre ni texto de
@@ -336,6 +416,12 @@ if (file.exists(file.path(data_dir, "geocoded_map_data.rds"))) {
   geocoded_map_data <- NULL
   map_year_choices <- integer(0)
   map_servicio_choices <- character(0)
+}
+
+if (file.exists(file.path(data_dir, "patient_contacts.rds"))) {
+  patient_contacts <- readRDS(file.path(data_dir, "patient_contacts.rds"))
+} else {
+  patient_contacts <- NULL
 }
 
 if (file.exists(file.path(data_dir, "comunas_cali.rds"))) {

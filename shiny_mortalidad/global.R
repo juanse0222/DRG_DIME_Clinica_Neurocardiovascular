@@ -41,6 +41,31 @@ act_exp               <- pc$act_exp
 act_tmar              <- pc$act_tmar
 tmar_reciente         <- pc$tmar_reciente
 tmar_color            <- pc$tmar_color
+otras_total           <- pc$otras_total
+otras_pct_dime        <- pc$otras_pct_dime
+otras_top_cat         <- pc$otras_top_cat
+otras_trend           <- pc$otras_trend
+otras_mes_act         <- pc$otras_mes_act
+otras_tbl             <- pc$otras_tbl
+otras_dist            <- pc$otras_dist
+otras_pal             <- pc$otras_pal
+otras_diag_tbl        <- pc$otras_diag_tbl
+hsmr_anual            <- pc$hsmr_anual
+hsmr_mes_act_g        <- pc$hsmr_mes_act_g
+hsmr_mensual_todos    <- pc$hsmr_mensual_todos
+dist_global           <- pc$dist_global
+dist_global_acum      <- pc$dist_global_acum
+comorb_global         <- pc$comorb_global
+coef_global           <- pc$coef_global
+pal_global            <- pc$pal_global
+tm_ref_global         <- pc$tm_ref_global
+n_cv_train            <- pc$n_cv_train
+hsmr_actual_val       <- pc$hsmr_actual_val
+hsmr_esp_actual       <- pc$hsmr_esp_actual
+total_egresos_global  <- pc$total_egresos_global
+total_muertes_global  <- pc$total_muertes_global
+tasa_global           <- pc$tasa_global
+hsmr_color_g          <- pc$hsmr_color_g
 
 grd_choices <- sort(unique(tbl_anual$GRD))
 

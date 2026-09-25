@@ -516,4 +516,36 @@ cat(sprintf("Guardado output/geocoded_map_data.csv (%d filas paciente x año x t
 if (dir.exists("shiny_grd/data")) {
   saveRDS(map_export, "shiny_grd/data/geocoded_map_data.rds", compress = "xz")
   cat(sprintf("Guardado shiny_grd/data/geocoded_map_data.rds (%d filas)\n", nrow(map_export)))
+
+  # ── 8b. Export de CONTACTO — RESTRINGIDO, con nombre/teléfono ─────────────
+  # A petición de comunicaciones: lista de contacto para el mismo segmento de
+  # pacientes que el mapa (misma grilla paciente×año, mismos filtros), pero
+  # CON nombre y teléfono. Sólo se sirve tras contraseña compartida desde la
+  # pestaña Mapa (ver comms_secret.R) — nunca se sube a output/ ni a QGIS,
+  # sólo a shiny_grd/data/ (gitignored, igual que el resto de data/*.rds).
+  contacts_export <- visitas_año %>%
+    inner_join(coords_pac, by = "id_num") %>%
+    transmute(
+      id_num,
+      tipo_pagador = tipo_pagador_anio,
+      tipo_atencion,
+      caci = if_else(es_caci, as.character(caci_principal), "No CACI"),
+      servicio = servicio_principal,
+      frecuencia,
+      comuna = coalesce(comuna_nombre, "Fuera de Cali / sin comuna"),
+      año
+    ) %>%
+    left_join(
+      adm %>%
+        arrange(id_num, desc(fecha_ingreso_d)) %>%
+        distinct(id_num, .keep_all = TRUE) %>%
+        transmute(id_num, nombre = str_to_title(paciente),
+                  telefono_1, telefono_2, municipio),
+      by = "id_num"
+    )
+
+  saveRDS(contacts_export, "shiny_grd/data/patient_contacts.rds", compress = "xz")
+  cat(sprintf(
+    "Guardado shiny_grd/data/patient_contacts.rds (%d filas, CON nombre/teléfono — export restringido)\n",
+    nrow(contacts_export)))
 }

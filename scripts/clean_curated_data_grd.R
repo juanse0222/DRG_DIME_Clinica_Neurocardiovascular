@@ -4,7 +4,7 @@ pacman::p_load(tidyverse, janitor, lubridate, flextable, gtsummary, rio, hms,
 #### Preparation database to analyses process.
 
 ### 1. Charge database admissions patients: Database coming from admission and discharges from 2017 to 2025 and it is result of pre-screening and pre-processing 
-data_ingresos <- import("/Users/juansebastianhurtadozapata/Desktop/DIME /Documentos EDI/16. Egresos DIME Mensual/egresos_dime_mensual/data_2025/data_egresos_2017_2025.rda") ## Database update until june 2025
+data_egresos <- import("/Users/juansebastianhurtadozapata/Desktop/DIME /Documentos EDI/16. Egresos DIME Mensual/egresos_dime_mensual/data_2025/data_egresos_2017_2025.rda") ## Database update until june 2025
 data_ingresos <- import(here("data", "admission_data", "data_a_2024_2025.rds"))
 
 ### 2. Sales historic and last trimester of the year that I'm analyzing.
@@ -33,7 +33,7 @@ sales_detail_3 <- import(here("data", "data_costs", "ventas_detallado_oct_dic_20
 
 sales_detail_4 <- import(here("data", "data_costs", "ventas_detallado_oct_dic_2025.xls"), 
                          which = "ventas_planes_detallado 4", header = FALSE)
-as
+
 sales_no_names <- rbind(sales_detail_2, sales_detail_3, sales_detail_4)
 
 names(sales_no_names) <- names(sales_detail_1)
@@ -808,8 +808,7 @@ data_costo_total_2 <- rbind(data_costo_total_2.1, data_costo_total_2.2) %>%
 Sys.setlocale("LC_TIME", "es_ES")
 
 data_costo_total_2.1 <- data_costo_total_2 %>% 
-  mutate(venta = gsub(",", "", valor_cargo_tarifario),
-         venta = as.numeric(venta))
+  mutate(venta = gsub(",", "", valor_cargo_tarifario))
 
 
 #### Be carefull review variables and determine what apply 
@@ -851,7 +850,7 @@ data_costo_total_3 <- import("data_costo_total_3_2025_II.rds")
 
 tabla_ordenes_costo_total <- data_costo_total_3 %>%
   mutate(mes_año = as.Date(fecha_cargue, format = "%b-%Y")) %>% 
-  filter(año == "2025") %>% 
+  filter(año == "2026") %>% 
   #mutate(costo = replace_na(costo, 0)) %>% 
   group_by(caci_3, mes_cargue) %>% 
   summarise(costo_orden = sum(costo_2),

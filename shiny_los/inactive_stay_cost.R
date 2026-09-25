@@ -68,7 +68,8 @@ EI_MAP_EAPB <- c(
 EI_MAP_SERVICIO <- c(
   "UCI" = "UCI", "UCIN" = "UCIN (intermedio)",
   "UCIN ANGIO" = "UCIN (intermedio)", "UCIN RESPIRATORIOS" = "UCIN (intermedio)",
-  "PISO HOSP" = "Hospitalización", "URGENCIAS OBS" = "Hospitalización"
+  "PISO HOSP" = "Hospitalización", "URGENCIAS OBS" = "Hospitalización",
+  "Extensión Hospitalización" = "Hospitalización"
 )
 
 # ── Agregador reutilizable ────────────────────────────────────────────────────

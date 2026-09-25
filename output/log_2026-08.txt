@@ -1,0 +1,11 @@
+[14:47:02] ========================================
+[14:47:03] GRD MONTHLY REPORT — DIME
+[14:47:03] Reporting period: August 2026
+[14:47:03] Working directory: /Users/juansebastianhurtadozapata/Library/Mobile Documents/com~apple~CloudDocs/Desktop/DIME/Documentos EDI/Personal JSH/analisis_caci_2023
+[14:47:03] ========================================
+[14:47:03] Checking required packages...
+[14:47:08] Installing missing packages: quarto
+[14:47:11] All packages available.
+[14:47:11] Sourcing CACI classifier...
+[14:47:11] Classifier loaded.
+[14:47:11] Running analysis pipeline...
